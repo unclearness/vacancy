@@ -28,13 +28,11 @@ struct VoxelUpdateOption {
 };
 
 struct VoxelCarverOption {
-  
   Eigen::Vector3f bb_max;
   Eigen::Vector3f bb_min;
   float resolution{0.001f};
 
   VoxelUpdateOption update_option;
-
 };
 
 class VoxelGrid;
@@ -44,6 +42,7 @@ class VoxelCarver {
   std::unique_ptr<VoxelGrid> voxel_grid_;
 
   void UpdateOnSurface();
+  void UpdateOnSurfaceWithPseudo();
 
  public:
   VoxelCarver();
@@ -54,7 +53,8 @@ class VoxelCarver {
   bool Carve(const Camera& camera, const Image1b& silhouette);
   bool Carve(const std::vector<Camera>& cameras,
              const std::vector<Image1b>& silhouettes);
-  void ExtractVoxel(Mesh* mesh, bool inside_empty = true);
+  void ExtractVoxel(Mesh* mesh, bool inside_empty = true,
+                    bool with_pseudo_surface = false);
   void ExtractIsoSurface(Mesh* mesh);
 };
 

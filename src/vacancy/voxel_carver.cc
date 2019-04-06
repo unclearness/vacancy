@@ -166,6 +166,8 @@ void VoxelGrid::Init(const Eigen::Vector3f& bb_max,
 
   float offset = resolution_ * 0.5f;
 
+  float max_dist = std::max(std::max(diff[0], diff[1]), diff[2]);
+
 #if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
 #pragma omp parallel for schedule(dynamic, 1)
 #endif
@@ -191,6 +193,8 @@ void VoxelGrid::Init(const Eigen::Vector3f& bb_max,
         voxel.pos.x() = x_pos;
         voxel.pos.y() = y_pos;
         voxel.pos.z() = z_pos;
+
+        voxel.sdf = max_dist;
       }
     }
   }
@@ -288,8 +292,55 @@ bool VoxelCarver::Carve(const std::vector<Camera>& cameras,
 
 void VoxelCarver::UpdateOnSurface() {
   // raycast like surface detection
+  // search xyz axes to detect the voxel on sign change
+
+  const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
+
+  // x
+  for (int z = 0; z < voxel_num.z(); z++) {
+    for (int y = 0; y < voxel_num.y(); y++) {
+      for (int x = 1; x < voxel_num.x(); x++) {
+        Voxel& prev_voxel = voxel_grid_->get(x - 1, y, z);
+        Voxel& voxel = voxel_grid_->get(x, y, z);
+        if (voxel.sdf * prev_voxel.sdf < 0) {
+          voxel.on_surface = true;
+        }
+      }
+    }
+  }
+
+  // y
+  for (int z = 0; z < voxel_num.z(); z++) {
+    for (int x = 0; x < voxel_num.x(); x++) {
+      for (int y = 1; y < voxel_num.y(); y++) {
+        Voxel& prev_voxel = voxel_grid_->get(x, y - 1, z);
+        Voxel& voxel = voxel_grid_->get(x, y, z);
+        if (voxel.sdf * prev_voxel.sdf < 0) {
+          voxel.on_surface = true;
+        }
+      }
+    }
+  }
+
+  // z
+  for (int y = 0; y < voxel_num.y(); y++) {
+    for (int x = 0; x < voxel_num.x(); x++) {
+      for (int z = 1; z < voxel_num.z(); z++) {
+        Voxel& prev_voxel = voxel_grid_->get(x, y, z - 1);
+        Voxel& voxel = voxel_grid_->get(x, y, z);
+        if (voxel.sdf * prev_voxel.sdf < 0) {
+          voxel.on_surface = true;
+        }
+      }
+    }
+  }
+}
+
+void VoxelCarver::UpdateOnSurfaceWithPseudo() {
+  // raycast like surface detection
   // search xyz axes bidirectionally to detect the voxel whose sign changes from
   // + to -
+  // this function adds pseudo surfaces, which are good for visualization
 
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
 
@@ -420,11 +471,11 @@ void VoxelCarver::UpdateOnSurface() {
   }
 }
 
-void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty) {
+void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty,
+                               bool with_pseudo_surface) {
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
 
   Timer<> timer;
-
   timer.Start();
 
   mesh->Clear();
@@ -436,7 +487,11 @@ void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty) {
 
   // update on_surface flag of voxels
   if (inside_empty) {
-    UpdateOnSurface();
+    if (with_pseudo_surface) {
+      UpdateOnSurfaceWithPseudo();
+    } else {
+      UpdateOnSurface();
+    }
   }
 
   for (int z = 0; z < voxel_num.z(); z++) {
