@@ -31,7 +31,7 @@ struct VoxelCarverOption {
   Eigen::Vector3f bb_max;
   Eigen::Vector3f bb_min;
   float resolution{0.001f};
-
+  std::string debug_dir{""};
   VoxelUpdateOption update_option;
 };
 

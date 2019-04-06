@@ -96,7 +96,7 @@ void SignedDistance2Color(const vacancy::Image1f& sdf,
       if (d > 0) {
         float norm_inv_dist = (max_positive_d - d) / max_positive_d;
         norm_inv_dist = std::min(std::max(norm_inv_dist, 0.0f), 1.0f);
-
+        norm_inv_dist = 1.0f - norm_inv_dist;
         vis_sdf->at(x, y, 0) = static_cast<uint8_t>(255);
         vis_sdf->at(x, y, 1) = static_cast<uint8_t>(255 * norm_inv_dist);
         vis_sdf->at(x, y, 2) = static_cast<uint8_t>(255 * norm_inv_dist);
@@ -104,7 +104,7 @@ void SignedDistance2Color(const vacancy::Image1f& sdf,
       } else {
         float norm_inv_dist = (d - min_negative_d) / (-min_negative_d);
         norm_inv_dist = std::min(std::max(norm_inv_dist, 0.0f), 1.0f);
-
+        norm_inv_dist = 1.0f - norm_inv_dist;
         vis_sdf->at(x, y, 0) = static_cast<uint8_t>(255 * norm_inv_dist);
         vis_sdf->at(x, y, 1) = static_cast<uint8_t>(255 * norm_inv_dist);
         vis_sdf->at(x, y, 2) = static_cast<uint8_t>(255);
@@ -132,6 +132,7 @@ class VoxelGrid {
   Eigen::Vector3f bb_min_;
   float resolution_;
   Eigen::Vector3i voxel_num_{0, 0, 0};
+  int xy_slice_num_{0};
 
  public:
   VoxelGrid();
@@ -160,6 +161,8 @@ void VoxelGrid::Init(const Eigen::Vector3f& bb_max,
   for (int i = 0; i < 3; i++) {
     voxel_num_[i] = static_cast<int>(diff[i] / resolution_);
   }
+
+  xy_slice_num_ = voxel_num_[0] * voxel_num_[1];
 
   voxels_.clear();
   voxels_.resize(voxel_num_.x() * voxel_num_.y() * voxel_num_.z());
@@ -203,7 +206,7 @@ void VoxelGrid::Init(const Eigen::Vector3f& bb_max,
 const Eigen::Vector3i& VoxelGrid::voxel_num() const { return voxel_num_; }
 
 Voxel& VoxelGrid::get(int x, int y, int z) {
-  return voxels_[voxel_num_.z() * (y * voxel_num_.x() + x) + z];
+  return voxels_[z * xy_slice_num_ + (y * voxel_num_.x() + x)];
 }
 
 VoxelCarver::VoxelCarver() {}
@@ -229,6 +232,12 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette) {
   timer.End();
   LOGI("VoxelCarver::Carve make SDF %02f\n", timer.elapsed_msec());
 
+  if (!option_.debug_dir.empty()) {
+    Image3b vis_dist;
+    SignedDistance2Color(dist_image, &vis_dist, -100, 100);
+    vis_dist.WritePng(option_.debug_dir + "/sdf.png");
+  }
+
   timer.Start();
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
   const Eigen::Affine3f& w2c = camera.w2c().cast<float>();
@@ -246,8 +255,14 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette) {
         }
 
         Eigen::Vector2f image_p_f;
-        Eigen::Vector3f camera_pos = w2c * voxel.pos;
-        camera.Project(camera_pos, &image_p_f);
+        Eigen::Vector3f voxel_pos_c = w2c * voxel.pos;
+
+        // skip if the voxel is in the back of the camera
+        if (voxel_pos_c.z() < 0) {
+          continue;
+        }
+
+        camera.Project(voxel_pos_c, &image_p_f);
 
         Eigen::Vector2i image_p(static_cast<int>(std::round(image_p_f.x())),
                                 static_cast<int>(std::round(image_p_f.y())));
@@ -296,6 +311,8 @@ void VoxelCarver::UpdateOnSurface() {
 
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
 
+  constexpr float e = std::numeric_limits<float>::min();
+
   // x
   for (int z = 0; z < voxel_num.z(); z++) {
     for (int y = 0; y < voxel_num.y(); y++) {
@@ -303,6 +320,9 @@ void VoxelCarver::UpdateOnSurface() {
         Voxel& prev_voxel = voxel_grid_->get(x - 1, y, z);
         Voxel& voxel = voxel_grid_->get(x, y, z);
         if (voxel.sdf * prev_voxel.sdf < 0) {
+          voxel.on_surface = true;
+        }
+        if (std::abs(voxel.sdf) < e) {
           voxel.on_surface = true;
         }
       }
@@ -318,6 +338,9 @@ void VoxelCarver::UpdateOnSurface() {
         if (voxel.sdf * prev_voxel.sdf < 0) {
           voxel.on_surface = true;
         }
+        if (std::abs(voxel.sdf) < e) {
+          voxel.on_surface = true;
+        }
       }
     }
   }
@@ -329,6 +352,9 @@ void VoxelCarver::UpdateOnSurface() {
         Voxel& prev_voxel = voxel_grid_->get(x, y, z - 1);
         Voxel& voxel = voxel_grid_->get(x, y, z);
         if (voxel.sdf * prev_voxel.sdf < 0) {
+          voxel.on_surface = true;
+        }
+        if (std::abs(voxel.sdf) < e) {
           voxel.on_surface = true;
         }
       }
@@ -350,39 +376,55 @@ void VoxelCarver::UpdateOnSurfaceWithPseudo() {
       int min_index{-1};
       int max_index{-1};
       // min to max
+      bool found_min{false};
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int x = 0; x < voxel_num.x(); x++) {
           Voxel& voxel = voxel_grid_->get(x, y, z);
+
+          if (voxel.update_num < 1) {
+            continue;
+          }
 
           if (voxel.sdf < min_sdf) {
             min_sdf = voxel.sdf;
             min_index = x;
           }
           if (min_sdf < 0) {
+            found_min = true;
             break;
           }
         }
       }
 
       // max to min
+      bool found_max{false};
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int x = voxel_num.x() - 1; 0 <= x; x--) {
           Voxel& voxel = voxel_grid_->get(x, y, z);
+
+          if (voxel.update_num < 1) {
+            continue;
+          }
 
           if (voxel.sdf < min_sdf) {
             min_sdf = voxel.sdf;
             max_index = x;
           }
           if (min_sdf < 0) {
+            found_max = true;
             break;
           }
         }
       }
 
-      voxel_grid_->get(min_index, y, z).on_surface = true;
-      voxel_grid_->get(max_index, y, z).on_surface = true;
+      if (found_min) {
+        voxel_grid_->get(min_index, y, z).on_surface = true;
+      }
+      if (found_max) {
+        voxel_grid_->get(max_index, y, z).on_surface = true;
+      }
     }
   }
 
@@ -392,39 +434,51 @@ void VoxelCarver::UpdateOnSurfaceWithPseudo() {
       int min_index{-1};
       int max_index{-1};
       // min to max
+      bool found_min{false};
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int y = 0; y < voxel_num.y(); y++) {
           Voxel& voxel = voxel_grid_->get(x, y, z);
-
+          if (voxel.update_num < 1) {
+            continue;
+          }
           if (voxel.sdf < min_sdf) {
             min_sdf = voxel.sdf;
             min_index = y;
           }
           if (min_sdf < 0) {
+            found_min = true;
             break;
           }
         }
       }
 
       // max to min
+      bool found_max{false};
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int y = voxel_num.y() - 1; 0 <= y; y--) {
           Voxel& voxel = voxel_grid_->get(x, y, z);
-
+          if (voxel.update_num < 1) {
+            continue;
+          }
           if (voxel.sdf < min_sdf) {
             min_sdf = voxel.sdf;
             max_index = y;
           }
           if (min_sdf < 0) {
+            found_max = true;
             break;
           }
         }
       }
 
-      voxel_grid_->get(x, min_index, z).on_surface = true;
-      voxel_grid_->get(x, max_index, z).on_surface = true;
+      if (found_min) {
+        voxel_grid_->get(x, min_index, z).on_surface = true;
+      }
+      if (found_max) {
+        voxel_grid_->get(x, max_index, z).on_surface = true;
+      }
     }
   }
 
@@ -434,39 +488,51 @@ void VoxelCarver::UpdateOnSurfaceWithPseudo() {
       int min_index{-1};
       int max_index{-1};
       // min to max
+      bool found_min{false};
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int z = 0; z < voxel_num.z(); z++) {
           Voxel& voxel = voxel_grid_->get(x, y, z);
-
+          if (voxel.update_num < 1) {
+            continue;
+          }
           if (voxel.sdf < min_sdf) {
             min_sdf = voxel.sdf;
             min_index = z;
           }
           if (min_sdf < 0) {
+            found_min = true;
             break;
           }
         }
       }
 
       // max to min
+      bool found_max{false};
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int z = voxel_num.z() - 1; 0 <= z; z--) {
           Voxel& voxel = voxel_grid_->get(x, y, z);
-
+          if (voxel.update_num < 1) {
+            continue;
+          }
           if (voxel.sdf < min_sdf) {
             min_sdf = voxel.sdf;
             max_index = z;
           }
           if (min_sdf < 0) {
+            found_max = true;
             break;
           }
         }
       }
 
-      voxel_grid_->get(x, y, min_index).on_surface = true;
-      voxel_grid_->get(x, y, max_index).on_surface = true;
+      if (found_min) {
+        voxel_grid_->get(x, y, min_index).on_surface = true;
+      }
+      if (found_max) {
+        voxel_grid_->get(x, y, max_index).on_surface = true;
+      }
     }
   }
 }
@@ -499,11 +565,13 @@ void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty,
       for (int x = 0; x < voxel_num.x(); x++) {
         Voxel& voxel = voxel_grid_->get(x, y, z);
 
-        if (inside_empty && !voxel.on_surface) {
-          continue;
-        }
-
-        if (voxel.sdf > 0 || voxel.update_num < 1) {
+        if (inside_empty) {
+          if (!voxel.on_surface) {
+            // if inside_empty is specified, skip non-surface voxels
+            continue;
+          }
+        } else if (voxel.sdf > 0 || voxel.update_num < 1) {
+          // otherwise, naively skip outside and non-updated voxels
           continue;
         }
 
