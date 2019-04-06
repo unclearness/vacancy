@@ -191,7 +191,7 @@ void VoxelGrid::Init(const Eigen::Vector3f& bb_max,
         voxel.pos.y() = y_pos;
         voxel.pos.z() = z_pos;
 
-        voxel.sdf = max_dist;
+        voxel.sdf = -max_dist;
       }
     }
   }
@@ -264,9 +264,12 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
         // todo:: add truncation
 
         if (option_.update_option.voxel_update == VoxelUpdate::kMin) {
-          if (dist < voxel.sdf) {
+          if (dist > voxel.sdf) {
             voxel.sdf = dist;
             voxel.update_num++;
+            if (voxel.sdf > 0) {
+              // voxel.outside = true;
+            }
           }
         }
       }
@@ -311,6 +314,9 @@ void VoxelCarver::UpdateOnSurface() {
       for (int x = 1; x < voxel_num.x(); x++) {
         Voxel& prev_voxel = voxel_grid_->get(x - 1, y, z);
         Voxel& voxel = voxel_grid_->get(x, y, z);
+        if (voxel.update_num < 1 || prev_voxel.update_num < 1) {
+          continue;
+        }
         if (voxel.sdf * prev_voxel.sdf < 0) {
           voxel.on_surface = true;
         }
@@ -327,6 +333,9 @@ void VoxelCarver::UpdateOnSurface() {
       for (int y = 1; y < voxel_num.y(); y++) {
         Voxel& prev_voxel = voxel_grid_->get(x, y - 1, z);
         Voxel& voxel = voxel_grid_->get(x, y, z);
+        if (voxel.update_num < 1 || prev_voxel.update_num < 1) {
+          continue;
+        }
         if (voxel.sdf * prev_voxel.sdf < 0) {
           voxel.on_surface = true;
         }
@@ -343,6 +352,9 @@ void VoxelCarver::UpdateOnSurface() {
       for (int z = 1; z < voxel_num.z(); z++) {
         Voxel& prev_voxel = voxel_grid_->get(x, y, z - 1);
         Voxel& voxel = voxel_grid_->get(x, y, z);
+        if (voxel.update_num < 1 || prev_voxel.update_num < 1) {
+          continue;
+        }
         if (voxel.sdf * prev_voxel.sdf < 0) {
           voxel.on_surface = true;
         }
@@ -545,6 +557,18 @@ void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty,
 
   // update on_surface flag of voxels
   if (inside_empty) {
+#if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
+#pragma omp parallel for schedule(dynamic, 1)
+#endif
+    for (int z = 0; z < voxel_num.z(); z++) {
+      for (int y = 0; y < voxel_num.y(); y++) {
+        for (int x = 0; x < voxel_num.x(); x++) {
+          Voxel& voxel = voxel_grid_->get(x, y, z);
+          voxel.on_surface = false;
+        }
+      }
+    }
+
     if (with_pseudo_surface) {
       UpdateOnSurfaceWithPseudo();
     } else {
@@ -562,7 +586,7 @@ void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty,
             // if inside_empty is specified, skip non-surface voxels
             continue;
           }
-        } else if (voxel.sdf > 0 || voxel.update_num < 1) {
+        } else if (voxel.sdf > 0 || voxel.update_num < 1 || voxel.outside) {
           // otherwise, naively skip outside and non-updated voxels
           continue;
         }

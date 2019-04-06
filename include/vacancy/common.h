@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <limits>
+#include <iomanip>
 
 #include "Eigen/Geometry"
 #include "vacancy/log.h"
@@ -58,6 +59,13 @@ void c2w(const Eigen::Matrix<genType, 3, 1>& position,
 
   T->topLeftCorner(3, 3) = R;
   T->topRightCorner(3, 1) = position;
+}
+
+template <typename T>
+std::string zfill(const T& val, int num = 5) {
+  std::ostringstream sout;
+  sout << std::setfill('0') << std::setw(num) << val;
+  return sout.str();
 }
 
 }  // namespace vacancy
