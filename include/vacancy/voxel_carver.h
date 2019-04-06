@@ -50,6 +50,7 @@ class VoxelCarver {
   VoxelCarver(VoxelCarverOption option);
   void set_option(VoxelCarverOption option);
   void Init();
+  bool Carve(const Camera& camera, const Image1b& silhouette, Image1f* sdf);
   bool Carve(const Camera& camera, const Image1b& silhouette);
   bool Carve(const std::vector<Camera>& cameras,
              const std::vector<Image1b>& silhouettes);
@@ -57,5 +58,10 @@ class VoxelCarver {
                     bool with_pseudo_surface = false);
   void ExtractIsoSurface(Mesh* mesh);
 };
+
+void DistanceTransformL1(const Image1b& mask, Image1f* dist);
+void MakeSignedDistanceField(const Image1b& mask, Image1f* dist);
+void SignedDistance2Color(const Image1f& sdf, Image3b* vis_sdf,
+                          float min_negative_d, float max_positive_d);
 
 }  // namespace vacancy

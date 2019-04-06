@@ -6,7 +6,7 @@
 #include "vacancy/voxel_carver.h"
 #include "vacancy/timer.h"
 
-namespace {
+namespace vacancy {
 
 void DistanceTransformL1(const vacancy::Image1b& mask, vacancy::Image1f* dist) {
   dist->Init(mask.width(), mask.height(), 0.0f);
@@ -96,7 +96,6 @@ void SignedDistance2Color(const vacancy::Image1f& sdf,
       if (d > 0) {
         float norm_inv_dist = (max_positive_d - d) / max_positive_d;
         norm_inv_dist = std::min(std::max(norm_inv_dist, 0.0f), 1.0f);
-        norm_inv_dist = 1.0f - norm_inv_dist;
         vis_sdf->at(x, y, 0) = static_cast<uint8_t>(255);
         vis_sdf->at(x, y, 1) = static_cast<uint8_t>(255 * norm_inv_dist);
         vis_sdf->at(x, y, 2) = static_cast<uint8_t>(255 * norm_inv_dist);
@@ -104,7 +103,6 @@ void SignedDistance2Color(const vacancy::Image1f& sdf,
       } else {
         float norm_inv_dist = (d - min_negative_d) / (-min_negative_d);
         norm_inv_dist = std::min(std::max(norm_inv_dist, 0.0f), 1.0f);
-        norm_inv_dist = 1.0f - norm_inv_dist;
         vis_sdf->at(x, y, 0) = static_cast<uint8_t>(255 * norm_inv_dist);
         vis_sdf->at(x, y, 1) = static_cast<uint8_t>(255 * norm_inv_dist);
         vis_sdf->at(x, y, 2) = static_cast<uint8_t>(255);
@@ -112,10 +110,6 @@ void SignedDistance2Color(const vacancy::Image1f& sdf,
     }
   }
 }
-
-}  // namespace
-
-namespace vacancy {
 
 struct Voxel {
   Eigen::Vector3i index;  // voxel index
@@ -222,21 +216,14 @@ void VoxelCarver::Init() {
   voxel_grid_->Init(option_.bb_max, option_.bb_min, option_.resolution);
 }
 
-bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette) {
+bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
+                        Image1f* sdf) {
   Timer<> timer;
-
   timer.Start();
-  Image1f dist_image(camera.width(), camera.height());
   // make signed distance field
-  MakeSignedDistanceField(silhouette, &dist_image);
+  MakeSignedDistanceField(silhouette, sdf);
   timer.End();
   LOGI("VoxelCarver::Carve make SDF %02f\n", timer.elapsed_msec());
-
-  if (!option_.debug_dir.empty()) {
-    Image3b vis_dist;
-    SignedDistance2Color(dist_image, &vis_dist, -100, 100);
-    vis_dist.WritePng(option_.debug_dir + "/sdf.png");
-  }
 
   timer.Start();
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
@@ -272,7 +259,7 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette) {
           continue;
         }
 
-        float dist = dist_image.at(image_p.x(), image_p.y(), 0);
+        float dist = sdf->at(image_p.x(), image_p.y(), 0);
 
         // todo:: add truncation
 
@@ -289,6 +276,11 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette) {
   LOGI("VoxelCarver::Carve main loop %02f\n", timer.elapsed_msec());
 
   return true;
+}
+
+bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette) {
+  Image1f sdf(camera.width(), camera.height());
+  return Carve(camera, silhouette, &sdf);
 }
 
 bool VoxelCarver::Carve(const std::vector<Camera>& cameras,
