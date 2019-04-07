@@ -110,32 +110,22 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
   if (minmax_normalize) {
     float max_dist =
         *std::max_element(dist->data().begin(), dist->data().end());
-    if (max_dist > 0) {
-      float norm_factor = 1.0f / max_dist;
-      for (int y = 0; y < dist->height(); y++) {
-        for (int x = 0; x < dist->width(); x++) {
-          if (dist->at(x, y, 0) > 0) {
-            dist->at(x, y, 0) *= norm_factor;
-          }
-        }
-      }
-    }
-
     float min_dist =
         *std::min_element(dist->data().begin(), dist->data().end());
-    if (min_dist < 0) {
-      float norm_factor = -1.0f / min_dist;
+    float abs_max = std::max(std::abs(max_dist), std::abs(min_dist));
+
+    if (abs_max > std::numeric_limits<float>::min()) {
+      float norm_factor = 1.0f / abs_max;
+
       for (int y = 0; y < dist->height(); y++) {
         for (int x = 0; x < dist->width(); x++) {
-          if (dist->at(x, y, 0) < 0) {
-            dist->at(x, y, 0) *= norm_factor;
-          }
+          dist->at(x, y, 0) *= norm_factor;
         }
       }
     }
   }
 
-  // skip if dist is larger than truncation band
+  // truncation process same to KinectFusion
   if (use_truncation) {
     for (int y = 0; y < dist->height(); y++) {
       for (int x = 0; x < dist->width(); x++) {
