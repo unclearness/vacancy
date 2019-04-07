@@ -35,7 +35,34 @@ struct VoxelCarverOption {
   VoxelUpdateOption update_option;
 };
 
-class VoxelGrid;
+struct Voxel {
+  Eigen::Vector3i index;  // voxel index
+  Eigen::Vector3f pos;    // center of voxel
+  float sdf{0.0f};        // Signed Distance Function (SDF) value
+  int update_num{0};
+  bool outside{false};
+  bool on_surface{false};
+};
+
+class VoxelGrid {
+  std::vector<Voxel> voxels_;
+  Eigen::Vector3f bb_max_;
+  Eigen::Vector3f bb_min_;
+  float resolution_;
+  Eigen::Vector3i voxel_num_{0, 0, 0};
+  int xy_slice_num_{0};
+
+ public:
+  VoxelGrid();
+  ~VoxelGrid();
+  void Init(const Eigen::Vector3f& bb_max, const Eigen::Vector3f& bb_min,
+            float resolution);
+  const Eigen::Vector3i& voxel_num() const;
+  const Voxel& get(int x, int y, int z) const;
+  Voxel* get_ptr(int x, int y, int z);
+  float resolution() const;
+  void ResetOnSurface();
+};
 
 class VoxelCarver {
   VoxelCarverOption option_;
@@ -56,7 +83,7 @@ class VoxelCarver {
              const std::vector<Image1b>& silhouettes);
   void ExtractVoxel(Mesh* mesh, bool inside_empty = true,
                     bool with_pseudo_surface = false);
-  void ExtractIsoSurface(Mesh* mesh);
+  void ExtractIsoSurface(Mesh* mesh, double iso_level = 0.0);
 };
 
 void DistanceTransformL1(const Image1b& mask, Image1f* dist);
