@@ -254,16 +254,8 @@ Voxel* VoxelGrid::get_ptr(int x, int y, int z) {
 float VoxelGrid::resolution() const { return resolution_; }
 
 void VoxelGrid::ResetOnSurface() {
-#if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
-#pragma omp parallel for schedule(dynamic, 1)
-#endif
-  for (int z = 0; z < voxel_num_.z(); z++) {
-    for (int y = 0; y < voxel_num_.y(); y++) {
-      for (int x = 0; x < voxel_num_.x(); x++) {
-        Voxel* voxel = get_ptr(x, y, z);
-        voxel->on_surface = false;
-      }
-    }
+  for (Voxel& v : voxels_) {
+    v.on_surface = false;
   }
 }
 
