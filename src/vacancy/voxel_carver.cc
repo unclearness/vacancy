@@ -9,7 +9,7 @@
 
 namespace vacancy {
 
-void DistanceTransformL1(const vacancy::Image1b& mask, vacancy::Image1f* dist) {
+void DistanceTransformL1(const Image1b& mask, Image1f* dist) {
   dist->Init(mask.width(), mask.height(), 0.0f);
 
   // init inifinite inside mask
@@ -24,6 +24,18 @@ void DistanceTransformL1(const vacancy::Image1b& mask, vacancy::Image1f* dist) {
 
   // forward path
   for (int y = 1; y < mask.height(); y++) {
+    float up = dist->at(0, y - 1, 0);
+    if (up < std::numeric_limits<float>::max()) {
+      dist->at(0, y, 0) = std::min(up + 1.0f, dist->at(0, y, 0));
+    }
+  }
+  for (int x = 1; x < mask.width(); x++) {
+    float left = dist->at(x - 1, 0, 0);
+    if (left < std::numeric_limits<float>::max()) {
+      dist->at(x, 0, 0) = std::min(left + 1.0f, dist->at(x, 0, 0));
+    }
+  }
+  for (int y = 1; y < mask.height(); y++) {
     for (int x = 1; x < mask.width(); x++) {
       float up = dist->at(x, y - 1, 0);
       float left = dist->at(x - 1, y, 0);
@@ -36,6 +48,20 @@ void DistanceTransformL1(const vacancy::Image1b& mask, vacancy::Image1f* dist) {
 
   // backward path
   for (int y = mask.height() - 2; 0 <= y; y--) {
+    float down = dist->at(mask.width() - 1, y + 1, 0);
+    if (down < std::numeric_limits<float>::max()) {
+      dist->at(mask.width() - 1, y, 0) =
+          std::min(down + 1.0f, dist->at(mask.width() - 1, y, 0));
+    }
+  }
+  for (int x = mask.width() - 2; 0 <= x; x--) {
+    float right = dist->at(x + 1, mask.height() - 1, 0);
+    if (right < std::numeric_limits<float>::max()) {
+      dist->at(x, mask.height() - 1, 0) =
+          std::min(right + 1.0f, dist->at(x, mask.height() - 1, 0));
+    }
+  }
+  for (int y = mask.height() - 2; 0 <= y; y--) {
     for (int x = mask.width() - 2; 0 <= x; x--) {
       float down = dist->at(x, y + 1, 0);
       float right = dist->at(x + 1, y, 0);
@@ -47,9 +73,9 @@ void DistanceTransformL1(const vacancy::Image1b& mask, vacancy::Image1f* dist) {
   }
 }
 
-void MakeSignedDistanceField(const vacancy::Image1b& mask,
-                             vacancy::Image1f* dist) {
-  vacancy::Image1f* negative_dist = dist;
+void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
+                             bool minmax_normalize) {
+  Image1f* negative_dist = dist;
   DistanceTransformL1(mask, negative_dist);
   for (int y = 0; y < negative_dist->height(); y++) {
     for (int x = 0; x < negative_dist->width(); x++) {
@@ -59,7 +85,7 @@ void MakeSignedDistanceField(const vacancy::Image1b& mask,
     }
   }
 
-  vacancy::Image1b inv_mask(mask);
+  Image1b inv_mask(mask);
   for (int y = 0; y < inv_mask.height(); y++) {
     for (int x = 0; x < inv_mask.width(); x++) {
       if (inv_mask.at(x, y, 0) == 255) {
@@ -70,7 +96,7 @@ void MakeSignedDistanceField(const vacancy::Image1b& mask,
     }
   }
 
-  vacancy::Image1f positive_dist;
+  Image1f positive_dist;
   DistanceTransformL1(inv_mask, &positive_dist);
   for (int y = 0; y < inv_mask.height(); y++) {
     for (int x = 0; x < inv_mask.width(); x++) {
@@ -79,11 +105,39 @@ void MakeSignedDistanceField(const vacancy::Image1b& mask,
       }
     }
   }
+
+  if (minmax_normalize) {
+    float max_dist =
+        *std::max_element(dist->data().begin(), dist->data().end());
+    LOGI("max_dist %f\n", max_dist);
+    if (max_dist > 0) {
+      float norm_factor = 1.0f / max_dist;
+      for (int y = 0; y < dist->height(); y++) {
+        for (int x = 0; x < dist->width(); x++) {
+          if (dist->at(x, y, 0) > 0) {
+            dist->at(x, y, 0) *= norm_factor;
+          }
+        }
+      }
+    }
+
+    float min_dist =
+        *std::min_element(dist->data().begin(), dist->data().end());
+    if (min_dist < 0) {
+      float norm_factor = -1.0f / min_dist;
+      for (int y = 0; y < dist->height(); y++) {
+        for (int x = 0; x < dist->width(); x++) {
+          if (dist->at(x, y, 0) < 0) {
+            dist->at(x, y, 0) *= norm_factor;
+          }
+        }
+      }
+    }
+  }
 }
 
-void SignedDistance2Color(const vacancy::Image1f& sdf,
-                          vacancy::Image3b* vis_sdf, float min_negative_d,
-                          float max_positive_d) {
+void SignedDistance2Color(const Image1f& sdf, Image3b* vis_sdf,
+                          float min_negative_d, float max_positive_d) {
   assert(min_negative_d < 0);
   assert(0 < max_positive_d);
   assert(vis_sdf != nullptr);
@@ -145,7 +199,9 @@ bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
 
   float offset = resolution_ * 0.5f;
 
-  float max_dist = std::max(std::max(diff[0], diff[1]), diff[2]);
+  const float min_dist =
+      std::numeric_limits<float>::lowest();  // std::max(std::max(diff[0],
+                                             // diff[1]), diff[2]);
 
 #if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
 #pragma omp parallel for schedule(dynamic, 1)
@@ -173,7 +229,7 @@ bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
         voxel->pos.y() = y_pos;
         voxel->pos.z() = z_pos;
 
-        voxel->sdf = -max_dist;
+        voxel->sdf = min_dist;
       }
     }
   }
@@ -232,7 +288,7 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
   Timer<> timer;
   timer.Start();
   // make signed distance field
-  MakeSignedDistanceField(silhouette, sdf);
+  MakeSignedDistanceField(silhouette, sdf, option_.sdf_minmax_normalize);
   timer.End();
   LOGI("VoxelCarver::Carve make SDF %02f\n", timer.elapsed_msec());
 
@@ -278,9 +334,6 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
           if (dist > voxel->sdf) {
             voxel->sdf = dist;
             voxel->update_num++;
-            if (voxel->sdf > 0) {
-              // voxel.outside = true;
-            }
           }
         }
       }

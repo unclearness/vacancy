@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
     vacancy::Image3b vis_sdf;
     carver.Carve(*camera, silhouette, &sdf);
 
-    vacancy::SignedDistance2Color(sdf, &vis_sdf, -100, 100);
+    vacancy::SignedDistance2Color(sdf, &vis_sdf, -1.0f, 1.0f);
     vis_sdf.WritePng(data_dir + "/sdf_" + num + ".png");
 
     vacancy::Mesh mesh;

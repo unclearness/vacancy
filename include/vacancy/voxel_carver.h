@@ -31,6 +31,7 @@ struct VoxelCarverOption {
   Eigen::Vector3f bb_max;
   Eigen::Vector3f bb_min;
   float resolution{0.001f};
+  bool sdf_minmax_normalize{true};
   std::string debug_dir{""};
   VoxelUpdateOption update_option;
 };
@@ -88,7 +89,8 @@ class VoxelCarver {
 };
 
 void DistanceTransformL1(const Image1b& mask, Image1f* dist);
-void MakeSignedDistanceField(const Image1b& mask, Image1f* dist);
+void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
+                             bool minmax_normalize);
 void SignedDistance2Color(const Image1f& sdf, Image3b* vis_sdf,
                           float min_negative_d, float max_positive_d);
 
