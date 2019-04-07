@@ -451,6 +451,10 @@ void Eigen2XYZ(const Eigen::Vector3f &vec, XYZ *p) {
   return;
 }
 
+float CutOff(float val, float min_val = -1.0f, float max_val = 1.0f) {
+  return std::max(std::min(val, max_val), min_val);
+}
+
 }  // namespace
 
 namespace vacancy {
@@ -468,7 +472,7 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
   // offset for center to vertices
   float offset_len = voxel_grid.resolution() * 0.5f;
   Eigen::Vector3f offset;
-  // offset.setConstant(offset_len);
+  //offset.setConstant(offset_len);
   offset.setConstant(0);
   const Eigen::Vector3i &voxel_num = voxel_grid.voxel_num();
   for (int z = 1; z < voxel_num.z() - 1; z++) {
@@ -476,22 +480,22 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
       for (int x = 1; x < voxel_num.x() - 1; x++) {
         GRIDCELL grid;
         Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z - 1).pos - offset, &grid.p[0]);
-        grid.val[0] = voxel_grid.get(x - 1, y - 1, z - 1).sdf;
+        grid.val[0] = CutOff(voxel_grid.get(x - 1, y - 1, z - 1).sdf);
         Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z - 1).pos - offset, &grid.p[1]);
-        grid.val[1] = voxel_grid.get(x + 1, y - 1, z - 1).sdf;
+        grid.val[1] = CutOff(voxel_grid.get(x + 1, y - 1, z - 1).sdf);
         Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z - 1).pos - offset, &grid.p[2]);
-        grid.val[2] = voxel_grid.get(x + 1, y + 1, z - 1).sdf;
+        grid.val[2] = CutOff(voxel_grid.get(x + 1, y + 1, z - 1).sdf);
         Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z - 1).pos - offset, &grid.p[3]);
-        grid.val[3] = voxel_grid.get(x - 1, y + 1, z - 1).sdf;
+        grid.val[3] = CutOff(voxel_grid.get(x - 1, y + 1, z - 1).sdf);
 
         Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z + 1).pos - offset, &grid.p[4]);
-        grid.val[4] = voxel_grid.get(x - 1, y - 1, z + 1).sdf;
+        grid.val[4] = CutOff(voxel_grid.get(x - 1, y - 1, z + 1).sdf);
         Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z + 1).pos - offset, &grid.p[5]);
-        grid.val[5] = voxel_grid.get(x + 1, y - 1, z + 1).sdf;
+        grid.val[5] = CutOff(voxel_grid.get(x + 1, y - 1, z + 1).sdf);
         Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z + 1).pos - offset, &grid.p[6]);
-        grid.val[6] = voxel_grid.get(x + 1, y + 1, z + 1).sdf;
+        grid.val[6] = CutOff(voxel_grid.get(x + 1, y + 1, z + 1).sdf);
         Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z + 1).pos - offset, &grid.p[7]);
-        grid.val[7] = voxel_grid.get(x - 1, y + 1, z + 1).sdf;
+        grid.val[7] = CutOff(voxel_grid.get(x - 1, y + 1, z + 1).sdf);
 
         TRIANGLE triangles[5];
         int tri_num = Polygonise(grid, iso_level, triangles);
