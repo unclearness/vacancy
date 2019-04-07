@@ -110,7 +110,6 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
   if (minmax_normalize) {
     float max_dist =
         *std::max_element(dist->data().begin(), dist->data().end());
-    LOGI("max_dist %f\n", max_dist);
     if (max_dist > 0) {
       float norm_factor = 1.0f / max_dist;
       for (int y = 0; y < dist->height(); y++) {
