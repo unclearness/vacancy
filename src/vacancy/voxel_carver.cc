@@ -116,15 +116,23 @@ VoxelGrid::VoxelGrid() {}
 
 VoxelGrid::~VoxelGrid() {}
 
-void VoxelGrid::Init(const Eigen::Vector3f& bb_max,
+bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
                      const Eigen::Vector3f& bb_min, float resolution) {
+  if (resolution < 0) {
+    LOGE("resolution must be positive %f\n", resolution);
+    return false;
+  }
+  if (bb_max.x() <= bb_min.x() || bb_max.y() <= bb_min.y() ||
+      bb_max.z() <= bb_min.z()) {
+    LOGE("input bounding box is invalid\n");
+    return false;
+  }
+
   bb_max_ = bb_max;
   bb_min_ = bb_min;
   resolution_ = resolution;
 
   Eigen::Vector3f diff = bb_max_ - bb_min_;
-
-  assert(resolution > 0);
 
   for (int i = 0; i < 3; i++) {
     voxel_num_[i] = static_cast<int>(diff[i] / resolution_);
@@ -169,6 +177,8 @@ void VoxelGrid::Init(const Eigen::Vector3f& bb_max,
       }
     }
   }
+
+  return true;
 }
 
 const Eigen::Vector3i& VoxelGrid::voxel_num() const { return voxel_num_; }
@@ -197,6 +207,8 @@ void VoxelGrid::ResetOnSurface() {
   }
 }
 
+bool VoxelGrid::initialized() const { return !voxels_.empty(); }
+
 VoxelCarver::VoxelCarver() {}
 
 VoxelCarver::~VoxelCarver() {}
@@ -205,13 +217,18 @@ VoxelCarver::VoxelCarver(VoxelCarverOption option) { set_option(option); }
 
 void VoxelCarver::set_option(VoxelCarverOption option) { option_ = option; }
 
-void VoxelCarver::Init() {
+bool VoxelCarver::Init() {
   voxel_grid_ = std::make_unique<VoxelGrid>();
-  voxel_grid_->Init(option_.bb_max, option_.bb_min, option_.resolution);
+  return voxel_grid_->Init(option_.bb_max, option_.bb_min, option_.resolution);
 }
 
 bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
                         Image1f* sdf) {
+  if (!voxel_grid_->initialized()) {
+    LOGE("VoxelCarver::Carve voxel grid has not been initialized\n");
+    return false;
+  }
+
   Timer<> timer;
   timer.Start();
   // make signed distance field

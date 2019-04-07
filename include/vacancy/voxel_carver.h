@@ -48,20 +48,21 @@ class VoxelGrid {
   std::vector<Voxel> voxels_;
   Eigen::Vector3f bb_max_;
   Eigen::Vector3f bb_min_;
-  float resolution_;
+  float resolution_{-1.0f};
   Eigen::Vector3i voxel_num_{0, 0, 0};
   int xy_slice_num_{0};
 
  public:
   VoxelGrid();
   ~VoxelGrid();
-  void Init(const Eigen::Vector3f& bb_max, const Eigen::Vector3f& bb_min,
+  bool Init(const Eigen::Vector3f& bb_max, const Eigen::Vector3f& bb_min,
             float resolution);
   const Eigen::Vector3i& voxel_num() const;
   const Voxel& get(int x, int y, int z) const;
   Voxel* get_ptr(int x, int y, int z);
   float resolution() const;
   void ResetOnSurface();
+  bool initialized() const;
 };
 
 class VoxelCarver {
@@ -76,7 +77,7 @@ class VoxelCarver {
   ~VoxelCarver();
   VoxelCarver(VoxelCarverOption option);
   void set_option(VoxelCarverOption option);
-  void Init();
+  bool Init();
   bool Carve(const Camera& camera, const Image1b& silhouette, Image1f* sdf);
   bool Carve(const Camera& camera, const Image1b& silhouette);
   bool Carve(const std::vector<Camera>& cameras,
