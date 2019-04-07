@@ -452,7 +452,7 @@ void Eigen2XYZ(const Eigen::Vector3f &vec, XYZ *p) {
 }
 
 // binalize SDF to ensure interpolated points are on the middle points of cube
-// edge VertexInterp() linearly interpolates based on SDF
+// edge. VertexInterp() linearly interpolates based on SDF
 float CutOff(float val, float min_val = -1.0f, float max_val = 1.0f) {
   if (val > 0) {
     return max_val;
@@ -483,6 +483,11 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
   for (int z = 1; z < voxel_num.z() - 1; z++) {
     for (int y = 1; y < voxel_num.y() - 1; y++) {
       for (int x = 1; x < voxel_num.x() - 1; x++) {
+
+        if (voxel_grid.get(x, y, z).update_num < 1) {
+            continue;
+        }
+
         GRIDCELL grid;
         Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z - 1).pos - offset, &grid.p[0]);
         grid.val[0] = CutOff(voxel_grid.get(x - 1, y - 1, z - 1).sdf);

@@ -74,7 +74,8 @@ void DistanceTransformL1(const Image1b& mask, Image1f* dist) {
 }
 
 void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
-                             bool minmax_normalize) {
+                             bool minmax_normalize, bool use_truncation,
+                             float truncation_band) {
   Image1f* negative_dist = dist;
   DistanceTransformL1(mask, negative_dist);
   for (int y = 0; y < negative_dist->height(); y++) {
@@ -130,6 +131,20 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
           if (dist->at(x, y, 0) < 0) {
             dist->at(x, y, 0) *= norm_factor;
           }
+        }
+      }
+    }
+  }
+
+  // skip if dist is larger than truncation band
+  if (use_truncation) {
+    for (int y = 0; y < dist->height(); y++) {
+      for (int x = 0; x < dist->width(); x++) {
+        float& d = dist->at(x, y, 0);
+        if (-truncation_band >= d) {
+          d = std::numeric_limits<float>::lowest();
+        } else {
+          d = std::min(1.0f, d / truncation_band);
         }
       }
     }
@@ -288,7 +303,9 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
   Timer<> timer;
   timer.Start();
   // make signed distance field
-  MakeSignedDistanceField(silhouette, sdf, option_.sdf_minmax_normalize);
+  MakeSignedDistanceField(silhouette, sdf, option_.sdf_minmax_normalize,
+                          option_.update_option.use_truncation,
+                          option_.update_option.truncation_band);
   timer.End();
   LOGI("VoxelCarver::Carve make SDF %02f\n", timer.elapsed_msec());
 
@@ -328,13 +345,27 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
 
         float dist = sdf->at(image_p.x(), image_p.y(), 0);
 
-        // todo:: add truncation
+        // skip if dist is truncated
+        if (option_.update_option.use_truncation && dist < -1.0f) {
+          continue;
+        }
 
-        if (option_.update_option.voxel_update == VoxelUpdate::kMin) {
+        if (option_.update_option.voxel_update == VoxelUpdate::kMax) {
           if (dist > voxel->sdf) {
             voxel->sdf = dist;
             voxel->update_num++;
           }
+        } else if (option_.update_option.voxel_update ==
+                   VoxelUpdate::kWeightedAverage) {
+          if (voxel->update_num < 1) {
+            voxel->sdf = dist;
+          } else {
+            float w = option_.update_option.voxel_update_weight;
+            float inv_denom = 1.0f / (w * (voxel->update_num + 1));
+            voxel->sdf =
+                (w * voxel->update_num * voxel->sdf + w * dist) * inv_denom;
+          }
+          voxel->update_num++;
         }
       }
     }

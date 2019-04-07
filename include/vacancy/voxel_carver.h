@@ -14,17 +14,18 @@ namespace vacancy {
 
 // Voxel update type
 enum class VoxelUpdate {
-  kMin = 0,             // take mininum
-  kAverage = 1,         // Average
-  kWeightedAverage = 2  // Weighted Average like KinectFusion
+  kMax = 0,             // take max
+  kWeightedAverage = 1  // Weighted Average like KinectFusion. truncation is
+                        // necessary to get good result
 };
 
 struct VoxelUpdateOption {
-  VoxelUpdate voxel_update{VoxelUpdate::kMin};
+  VoxelUpdate voxel_update{VoxelUpdate::kMax};
   int voxel_max_update_num{
       255};  // After updating voxel_max_update_num, no sdf update
   float voxel_update_weight{1.0f};  // only valid if kWeightedAverage is set
-  float truncation_band{0.1f};
+  bool use_truncation{true};
+  float truncation_band{0.1f};  // only positive value is valid
 };
 
 struct VoxelCarverOption {
@@ -90,7 +91,8 @@ class VoxelCarver {
 
 void DistanceTransformL1(const Image1b& mask, Image1f* dist);
 void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
-                             bool minmax_normalize);
+                             bool minmax_normalize, bool use_truncation,
+                             float truncation_band);
 void SignedDistance2Color(const Image1f& sdf, Image3b* vis_sdf,
                           float min_negative_d, float max_positive_d);
 
