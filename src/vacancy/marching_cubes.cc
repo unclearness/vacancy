@@ -472,13 +472,6 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
   std::vector<Eigen::Vector3f> vertices;
   std::vector<Eigen::Vector3i> vertex_indices;
 
-  // Voxel.pos is the center of voxel cubes but GRIDCELL.p should be
-  // vertices of the cube
-  // offset for center to vertices
-  float offset_len = voxel_grid.resolution() * 0.5f;
-  Eigen::Vector3f offset;
-  // offset.setConstant(offset_len);
-  offset.setConstant(0);
   const Eigen::Vector3i &voxel_num = voxel_grid.voxel_num();
   for (int z = 1; z < voxel_num.z() - 1; z++) {
     for (int y = 1; y < voxel_num.y() - 1; y++) {
@@ -489,22 +482,22 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
         }
 
         GRIDCELL grid;
-        Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z - 1).pos - offset, &grid.p[0]);
+        Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z - 1).pos, &grid.p[0]);
         grid.val[0] = CutOff(voxel_grid.get(x - 1, y - 1, z - 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z - 1).pos - offset, &grid.p[1]);
+        Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z - 1).pos, &grid.p[1]);
         grid.val[1] = CutOff(voxel_grid.get(x + 1, y - 1, z - 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z - 1).pos - offset, &grid.p[2]);
+        Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z - 1).pos, &grid.p[2]);
         grid.val[2] = CutOff(voxel_grid.get(x + 1, y + 1, z - 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z - 1).pos - offset, &grid.p[3]);
+        Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z - 1).pos, &grid.p[3]);
         grid.val[3] = CutOff(voxel_grid.get(x - 1, y + 1, z - 1).sdf);
 
-        Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z + 1).pos - offset, &grid.p[4]);
+        Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z + 1).pos, &grid.p[4]);
         grid.val[4] = CutOff(voxel_grid.get(x - 1, y - 1, z + 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z + 1).pos - offset, &grid.p[5]);
+        Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z + 1).pos, &grid.p[5]);
         grid.val[5] = CutOff(voxel_grid.get(x + 1, y - 1, z + 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z + 1).pos - offset, &grid.p[6]);
+        Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z + 1).pos, &grid.p[6]);
         grid.val[6] = CutOff(voxel_grid.get(x + 1, y + 1, z + 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z + 1).pos - offset, &grid.p[7]);
+        Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z + 1).pos, &grid.p[7]);
         grid.val[7] = CutOff(voxel_grid.get(x - 1, y + 1, z + 1).sdf);
 
         TRIANGLE triangles[5];
@@ -515,9 +508,9 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
         for (int i = 0; i < tri_num; i++) {
           for (int j = 0; j < 3; j++) {
             Eigen::Vector3f v;
-            v.x() = triangles[i].p[j].x;
-            v.y() = triangles[i].p[j].y;
-            v.z() = triangles[i].p[j].z;
+            v.x() = static_cast<float>(triangles[i].p[j].x);
+            v.y() = static_cast<float>(triangles[i].p[j].y);
+            v.z() = static_cast<float>(triangles[i].p[j].z);
             vertices.push_back(v);
           }
           Eigen::Vector3i face;

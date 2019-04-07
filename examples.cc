@@ -80,8 +80,8 @@ int main(int argc, char* argv[]) {
 
   vacancy::VoxelCarver carver;
   vacancy::VoxelCarverOption option;
-  option.bb_min = Eigen::Vector3f(-250.000000, -344.586151, -129.982697);
-  option.bb_max = Eigen::Vector3f(250.000000, 150.542343, 257.329224);
+  option.bb_min = Eigen::Vector3f(-250.000000f, -344.586151f, -129.982697f);
+  option.bb_max = Eigen::Vector3f(250.000000f, 150.542343f, 257.329224f);
 
   float bb_offset = 20.0f;
   option.bb_min[0] -= bb_offset;
