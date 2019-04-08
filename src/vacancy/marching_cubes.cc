@@ -475,9 +475,9 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level, bo
   std::vector<Eigen::Vector3i> vertex_indices;
 
   const Eigen::Vector3i &voxel_num = voxel_grid.voxel_num();
-  for (int z = 1; z < voxel_num.z() - 1; z++) {
-    for (int y = 1; y < voxel_num.y() - 1; y++) {
-      for (int x = 1; x < voxel_num.x() - 1; x++) {
+  for (int z = 1; z < voxel_num.z(); z++) {
+    for (int y = 1; y < voxel_num.y(); y++) {
+      for (int x = 1; x < voxel_num.x(); x++) {
 
         if (voxel_grid.get(x, y, z).update_num < 1) {
             continue;
