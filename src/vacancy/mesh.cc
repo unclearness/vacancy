@@ -112,6 +112,39 @@ void Mesh::CalcStats() {
   }
 }
 
+void Mesh::RemoveDuplicatedVertices() {
+  std::vector<int> vertex_id_table(vertices_.size(), -1);
+  std::vector<Eigen::Vector3f> non_duplicated_vertices;
+  non_duplicated_vertices.reserve(vertices_.size());
+  for (int i = 0; i <  static_cast<int>(vertices_.size() - 1); i++) {
+    if (vertex_id_table[i] > 0) {
+      continue;
+    }
+    const auto& v1 = vertices_[i];
+    vertex_id_table[i] = static_cast<int>(non_duplicated_vertices.size());
+    for (int j = i + 1; j <  static_cast<int>(vertices_.size()); j++) {
+      if (vertex_id_table[j] > 0) {
+        continue;
+      }
+      const auto& v2 = vertices_[j];
+      if (std::abs(v1.x() - v2.x()) < std::numeric_limits<float>::min() &&
+          std::abs(v1.y() - v2.y()) < std::numeric_limits<float>::min() &&
+              std::abs(v1.z() - v2.z()) < std::numeric_limits<float>::min()) {
+        vertex_id_table[j] = vertex_id_table[i];
+      }
+    }
+    non_duplicated_vertices.push_back(v1);
+  }
+
+  set_vertices(non_duplicated_vertices);
+
+  for (size_t i = 0; i < vertex_indices_.size(); i++) {
+    for (int j = 0; j < 3; j++) {
+      vertex_indices_[i][j] = vertex_id_table[vertex_indices_[i][j]];
+    }
+  }
+}
+
 void Mesh::Rotate(const Eigen::Matrix3f& R) {
   for (auto& v : vertices_) {
     v = R * v;

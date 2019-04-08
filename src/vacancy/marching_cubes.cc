@@ -300,7 +300,7 @@ struct XYZ {
 
 typedef struct {
   XYZ p[3];
-} TRIANGLE;
+} TRIANGLE_ORG;
 
 typedef struct {
   XYZ p[8];
@@ -335,7 +335,7 @@ XYZ VertexInterp(double isolevel, const XYZ &p1, const XYZ &p2, double valp1,
         0 will be returned if the grid cell is either totally above
    of totally below the isolevel.
 */
-int Polygonise(const GRIDCELL &grid, double isolevel, TRIANGLE *triangles) {
+int Polygonise(const GRIDCELL &grid, double isolevel, TRIANGLE_ORG *triangles) {
   int i, ntriang;
   int cubeindex;
   XYZ vertlist[12];
@@ -452,9 +452,9 @@ void Eigen2XYZ(const Eigen::Vector3f &vec, XYZ *p) {
   return;
 }
 
-// binalize SDF to ensure interpolated points are always on the middle points of cube
-// edge, which means no linear interpolation
-inline void CutOff(double* val, double min_val = -1.0f, double max_val = 1.0f) {
+// binalize SDF to ensure interpolated points are always on the middle points of
+// cube edge, which means no linear interpolation
+inline void CutOff(double *val, double min_val = -1.0f, double max_val = 1.0f) {
   if (*val > 0) {
     *val = max_val;
     return;
@@ -462,33 +462,110 @@ inline void CutOff(double* val, double min_val = -1.0f, double max_val = 1.0f) {
   *val = min_val;
 }
 
+struct Triangle {
+  std::array<Eigen::Vector3f, 3> vertices;
+  Eigen::Vector3i indices{-1, -1, -1};  // index in unified mesh
+
+  bool has_same_vertex(const Eigen::Vector3f &v, int *index) const {
+    bool has_vertex{false};
+    for (int i = 0; i < 3; i++) {
+      if (indices[i] < 0) {
+        break;
+      }
+      if (std::abs(vertices[i].x() - v.x()) <
+              std::numeric_limits<float>::min() &&
+          std::abs(vertices[i].y() - v.y()) <
+              std::numeric_limits<float>::min() &&
+          std::abs(vertices[i].z() - v.z()) <
+              std::numeric_limits<float>::min()) {
+        has_vertex = true;
+        *index = indices[i];
+        break;
+      }
+    }
+    return has_vertex;
+  }
+};
+
+using TriangleList = std::vector<Triangle>;
+class TrianglesInVoxelGrid {
+  Eigen::Vector3i voxel_num_{0, 0, 0};
+  int xy_slice_num_{0};
+  std::vector<TriangleList> triangles;
+
+ public:
+  TrianglesInVoxelGrid() {}
+  ~TrianglesInVoxelGrid() {}
+  TrianglesInVoxelGrid(int x_num, int y_num, int z_num) {
+    voxel_num_.x() = x_num;
+    voxel_num_.y() = y_num;
+    voxel_num_.z() = z_num;
+
+    xy_slice_num_ = voxel_num_.y() * voxel_num_.x();
+
+    triangles.resize(xy_slice_num_ * voxel_num_.z());
+  }
+  const TriangleList &get(int x, int y, int z) {
+    return triangles[z * xy_slice_num_ + (y * voxel_num_.x() + x)];
+  }
+  TriangleList *get_ptr(int x, int y, int z) {
+    return &triangles[z * xy_slice_num_ + (y * voxel_num_.x() + x)];
+  }
+};
+
+bool CheckVertexExistence(
+    const Eigen::Vector3f &v,
+    const std::vector<const TriangleList *> &prev_list_list, int *index) {
+  bool exists{false};
+
+  for (int i = 0; i < static_cast<int>(prev_list_list.size()); i++) {
+    for (int j = 0; j < static_cast<int>(prev_list_list[i]->size()); j++) {
+      exists = (*(prev_list_list[i]))[j].has_same_vertex(v, index);
+      if (exists) {
+        break;
+      }
+    }
+  }
+
+  return exists;
+}
+
 }  // namespace
 
 namespace vacancy {
 
-void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level, bool linear_interp) {
+void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level,
+                   bool linear_interp) {
   Timer<> timer;
   timer.Start();
 
   mesh->Clear();
+
+  const Eigen::Vector3i &voxel_num = voxel_grid.voxel_num();
+
+  TrianglesInVoxelGrid triangles_in_voxel_grid(voxel_num.x(), voxel_num.y(),
+                                               voxel_num.z());
+
   std::vector<Eigen::Vector3f> vertices;
   std::vector<Eigen::Vector3i> vertex_indices;
 
-  const Eigen::Vector3i &voxel_num = voxel_grid.voxel_num();
+  // computer per voxel triangles
+#if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
+#pragma omp parallel for schedule(dynamic, 1)
+#endif
   for (int z = 1; z < voxel_num.z(); z++) {
     for (int y = 1; y < voxel_num.y(); y++) {
       for (int x = 1; x < voxel_num.x(); x++) {
-
         if (voxel_grid.get(x, y, z).update_num < 1) {
-            continue;
+          continue;
         }
 
         GRIDCELL grid;
-        std::array<const Voxel*, 8> voxel_list;
+        std::array<const Voxel *, 8> voxel_list;
         voxel_list[0] = &voxel_grid.get(x - 1, y - 1, z - 1);
         voxel_list[1] = &voxel_grid.get(x, y - 1, z - 1);
         voxel_list[2] = &voxel_grid.get(x, y, z - 1);
-        voxel_list[3] = &voxel_grid.get(x-1, y, z - 1);
+        voxel_list[3] = &voxel_grid.get(x - 1, y, z - 1);
 
         voxel_list[4] = &voxel_grid.get(x - 1, y - 1, z);
         voxel_list[5] = &voxel_grid.get(x, y - 1, z);
@@ -507,30 +584,72 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level, bo
           }
         }
 
-        TRIANGLE triangles[5];
+        TRIANGLE_ORG triangles[5];
         int tri_num = Polygonise(grid, iso_level, triangles);
-
-        int vertex_index_offset = static_cast<int>(vertices.size());
-
+        TriangleList *current_list = triangles_in_voxel_grid.get_ptr(x, y, z);
         for (int i = 0; i < tri_num; i++) {
+          Triangle tri;
           for (int j = 0; j < 3; j++) {
-            Eigen::Vector3f v;
-            v.x() = static_cast<float>(triangles[i].p[j].x);
-            v.y() = static_cast<float>(triangles[i].p[j].y);
-            v.z() = static_cast<float>(triangles[i].p[j].z);
-            vertices.push_back(v);
+            // inverse order
+            tri.vertices[2 - j].x() = static_cast<float>(triangles[i].p[j].x);
+            tri.vertices[2 - j].y() = static_cast<float>(triangles[i].p[j].y);
+            tri.vertices[2 - j].z() = static_cast<float>(triangles[i].p[j].z);
           }
-          Eigen::Vector3i face;
-          face[2] = vertex_index_offset + i * 3 + 0;
-          face[1] = vertex_index_offset + i * 3 + 1;
-          face[0] = vertex_index_offset + i * 3 + 2;
-          vertex_indices.push_back(face);
+          current_list->push_back(tri);
         }
       }
     }
   }
+
+  // unify triangles
+  for (int z = 1; z < voxel_num.z(); z++) {
+    for (int y = 1; y < voxel_num.y(); y++) {
+      for (int x = 1; x < voxel_num.x(); x++) {
+        TriangleList *current_list = triangles_in_voxel_grid.get_ptr(x, y, z);
+
+        if (current_list->empty()) {
+          continue;
+        }
+
+        // check previously updated and adjacent 7 voxels
+        // todo: really correct?
+        std::vector<const TriangleList *> prev_list_list;
+        prev_list_list.push_back(
+            triangles_in_voxel_grid.get_ptr(x - 1, y - 1, z - 1));
+        prev_list_list.push_back(
+            triangles_in_voxel_grid.get_ptr(x, y - 1, z - 1));
+        prev_list_list.push_back(triangles_in_voxel_grid.get_ptr(x, y, z - 1));
+        prev_list_list.push_back(
+            triangles_in_voxel_grid.get_ptr(x - 1, y, z - 1));
+        prev_list_list.push_back(
+            triangles_in_voxel_grid.get_ptr(x - 1, y - 1, z));
+        prev_list_list.push_back(triangles_in_voxel_grid.get_ptr(x, y - 1, z));
+        prev_list_list.push_back(triangles_in_voxel_grid.get_ptr(x - 1, y, z));
+
+        for (int i = 0; i < static_cast<int>(current_list->size()); i++) {
+          Triangle &tri = (*current_list)[i];
+          for (int j = 0; j < 3; j++) {
+            bool exists = CheckVertexExistence(tri.vertices[j], prev_list_list,
+                                               &tri.indices[j]);
+
+            // make new vertex and its index if it has not been added
+            if (!exists) {
+              tri.indices[j] = static_cast<int>(vertices.size());
+              vertices.push_back(tri.vertices[j]);
+            }
+          }
+          vertex_indices.push_back(tri.indices);
+        }
+      }
+    }
+  }
+
   mesh->set_vertices(vertices);
   mesh->set_vertex_indices(vertex_indices);
+
+  // todo: don't use this
+  // tooooo slow
+  mesh->RemoveDuplicatedVertices();
 
   timer.End();
   LOGI("MarchingCubes %02f\n", timer.elapsed_msec());
