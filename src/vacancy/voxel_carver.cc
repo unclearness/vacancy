@@ -170,6 +170,9 @@ void SignedDistance2Color(const Image1f& sdf, Image3b* vis_sdf,
   }
 }
 
+Voxel::Voxel(){}
+Voxel::~Voxel() {}
+
 VoxelGrid::VoxelGrid() {}
 
 VoxelGrid::~VoxelGrid() {}

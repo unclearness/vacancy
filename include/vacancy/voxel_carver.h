@@ -38,12 +38,14 @@ struct VoxelCarverOption {
 };
 
 struct Voxel {
-  Eigen::Vector3i index;  // voxel index
-  Eigen::Vector3f pos;    // center of voxel
+  Eigen::Vector3i index{-1, -1, -1};  // voxel index
+  Eigen::Vector3f pos{0.0f, 0.0f, 0.0f};    // center of voxel
   float sdf{0.0f};        // Signed Distance Function (SDF) value
   int update_num{0};
   bool outside{false};
   bool on_surface{false};
+  Voxel();
+  ~Voxel();
 };
 
 class VoxelGrid {

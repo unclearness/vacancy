@@ -7,6 +7,7 @@
 // http://paulbourke.net/geometry/polygonise/
 
 #include "vacancy/marching_cubes.h"
+#include <array>
 #include "vacancy/timer.h"
 
 namespace {
@@ -451,20 +452,21 @@ void Eigen2XYZ(const Eigen::Vector3f &vec, XYZ *p) {
   return;
 }
 
-// binalize SDF to ensure interpolated points are on the middle points of cube
-// edge. VertexInterp() linearly interpolates based on SDF
-float CutOff(float val, float min_val = -1.0f, float max_val = 1.0f) {
-  if (val > 0) {
-    return max_val;
+// binalize SDF to ensure interpolated points are always on the middle points of cube
+// edge, which means no linear interpolation
+inline void CutOff(double* val, double min_val = -1.0f, double max_val = 1.0f) {
+  if (*val > 0) {
+    *val = max_val;
+    return;
   }
-  return min_val;
+  *val = min_val;
 }
 
 }  // namespace
 
 namespace vacancy {
 
-void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
+void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level, bool linear_interp) {
   Timer<> timer;
   timer.Start();
 
@@ -482,23 +484,28 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
         }
 
         GRIDCELL grid;
-        Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z - 1).pos, &grid.p[0]);
-        grid.val[0] = CutOff(voxel_grid.get(x - 1, y - 1, z - 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z - 1).pos, &grid.p[1]);
-        grid.val[1] = CutOff(voxel_grid.get(x + 1, y - 1, z - 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z - 1).pos, &grid.p[2]);
-        grid.val[2] = CutOff(voxel_grid.get(x + 1, y + 1, z - 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z - 1).pos, &grid.p[3]);
-        grid.val[3] = CutOff(voxel_grid.get(x - 1, y + 1, z - 1).sdf);
+        std::array<const Voxel*, 8> voxel_list;
+        voxel_list[0] = &voxel_grid.get(x - 1, y - 1, z - 1);
+        voxel_list[1] = &voxel_grid.get(x, y - 1, z - 1);
+        voxel_list[2] = &voxel_grid.get(x, y, z - 1);
+        voxel_list[3] = &voxel_grid.get(x-1, y, z - 1);
 
-        Eigen2XYZ(voxel_grid.get(x - 1, y - 1, z + 1).pos, &grid.p[4]);
-        grid.val[4] = CutOff(voxel_grid.get(x - 1, y - 1, z + 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y - 1, z + 1).pos, &grid.p[5]);
-        grid.val[5] = CutOff(voxel_grid.get(x + 1, y - 1, z + 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x + 1, y + 1, z + 1).pos, &grid.p[6]);
-        grid.val[6] = CutOff(voxel_grid.get(x + 1, y + 1, z + 1).sdf);
-        Eigen2XYZ(voxel_grid.get(x - 1, y + 1, z + 1).pos, &grid.p[7]);
-        grid.val[7] = CutOff(voxel_grid.get(x - 1, y + 1, z + 1).sdf);
+        voxel_list[4] = &voxel_grid.get(x - 1, y - 1, z);
+        voxel_list[5] = &voxel_grid.get(x, y - 1, z);
+        voxel_list[6] = &voxel_grid.get(x, y, z);
+        voxel_list[7] = &voxel_grid.get(x - 1, y, z);
+
+        for (int i = 0; i < 8; i++) {
+          Eigen2XYZ(voxel_list[i]->pos, &grid.p[i]);
+          grid.val[i] = voxel_list[i]->sdf;
+        }
+
+        if (!linear_interp) {
+          // set 1.0 or -1.0 to disable linear interpolation
+          for (int i = 0; i < 8; i++) {
+            CutOff(&grid.val[i]);
+          }
+        }
 
         TRIANGLE triangles[5];
         int tri_num = Polygonise(grid, iso_level, triangles);
