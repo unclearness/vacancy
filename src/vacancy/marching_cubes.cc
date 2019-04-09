@@ -344,6 +344,8 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
   std::vector<Eigen::Vector3f> vertices;
   std::vector<Eigen::Vector3i> vertex_indices;
 
+  // key: sorted a pair of unique voxel ids in the voxel grid
+  // value: the corresponding interpolated vertex id in the unified mesh
   // todo: consider faster way... maybe unordered_map?
   std::map<std::pair<int, int>, int> voxelids2vertexid;
 
@@ -386,7 +388,9 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
           continue;
         }
 
-        /* Find the vertices where the surface intersects the cube */
+        /* Find the vertices where the surface intersects the cube
+         * And save a pair of voxel ids when the vertices occur
+         */
         if (edgeTable[cubeindex] & 1) {
           VertexInterp(iso_level, *voxels[0], *voxels[1], &vert_list[0]);
           voxelids_list[0] = std::make_pair(voxels[0]->id, voxels[1]->id);
@@ -443,12 +447,14 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
             const std::pair<int, int> &key =
                 voxelids_list[triTable[cubeindex][i + (2 - j)]];
             if (voxelids2vertexid.find(key) == voxelids2vertexid.end()) {
-              // new vertex
+              // if a pair of voxel ids has not been added, the current vertex
+              // is new. store the pair of voxel ids and new vertex position
               face[j] = static_cast<int>(vertices.size());
               vertices.push_back(vert_list[triTable[cubeindex][i + (2 - j)]]);
               voxelids2vertexid.insert(std::make_pair(key, face[j]));
             } else {
-              // existing vertex
+              // set existing vertex id if the pair of voxel ids has been
+              // already added
               face[j] = voxelids2vertexid.at(key);
             }
           }
