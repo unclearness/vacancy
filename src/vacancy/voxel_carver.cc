@@ -179,7 +179,7 @@ VoxelGrid::~VoxelGrid() {}
 
 bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
                      const Eigen::Vector3f& bb_min, float resolution) {
-  if (resolution < 0) {
+  if (resolution < std::numeric_limits<float>::min()) {
     LOGE("resolution must be positive %f\n", resolution);
     return false;
   }
@@ -197,6 +197,12 @@ bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
 
   for (int i = 0; i < 3; i++) {
     voxel_num_[i] = static_cast<int>(diff[i] / resolution_);
+  }
+
+  if (voxel_num_.x() * voxel_num_.y() * voxel_num_.z() >
+      std::numeric_limits<int>::max()) {
+    LOGE("too many voxels\n");
+    return false;
   }
 
   xy_slice_num_ = voxel_num_[0] * voxel_num_[1];
