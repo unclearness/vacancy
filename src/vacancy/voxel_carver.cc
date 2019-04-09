@@ -170,7 +170,7 @@ void SignedDistance2Color(const Image1f& sdf, Image3b* vis_sdf,
   }
 }
 
-Voxel::Voxel(){}
+Voxel::Voxel() {}
 Voxel::~Voxel() {}
 
 VoxelGrid::VoxelGrid() {}
@@ -281,6 +281,20 @@ VoxelCarver::VoxelCarver(VoxelCarverOption option) { set_option(option); }
 void VoxelCarver::set_option(VoxelCarverOption option) { option_ = option; }
 
 bool VoxelCarver::Init() {
+  if (option_.update_option.voxel_max_update_num < 1) {
+    LOGE("voxel_max_update_num must be positive");
+    return false;
+  }
+  if (option_.update_option.voxel_update_weight <
+      std::numeric_limits<float>::min()) {
+    LOGE("voxel_update_weight must be positive");
+    return false;
+  }
+  if (option_.update_option.truncation_band <
+      std::numeric_limits<float>::min()) {
+    LOGE("truncation_band must be positive");
+    return false;
+  }
   voxel_grid_ = std::make_unique<VoxelGrid>();
   return voxel_grid_->Init(option_.bb_max, option_.bb_min, option_.resolution);
 }
@@ -352,8 +366,8 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
           if (voxel->update_num < 1) {
             voxel->sdf = dist;
           } else {
-            float w = option_.update_option.voxel_update_weight;
-            float inv_denom = 1.0f / (w * (voxel->update_num + 1));
+            const float& w = option_.update_option.voxel_update_weight;
+            const float inv_denom = 1.0f / (w * (voxel->update_num + 1));
             voxel->sdf =
                 (w * voxel->update_num * voxel->sdf + w * dist) * inv_denom;
           }

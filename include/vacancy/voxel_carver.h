@@ -14,8 +14,8 @@ namespace vacancy {
 
 // Voxel update type
 enum class VoxelUpdate {
-  kMax = 0,             // take max
-  kWeightedAverage = 1  // Weighted Average like KinectFusion. truncation is
+  kMax = 0,             // take max. naive voxel carving
+  kWeightedAverage = 1  // weighted Average like KinectFusion. truncation is
                         // necessary to get good result
 };
 
@@ -38,7 +38,7 @@ struct VoxelCarverOption {
 };
 
 struct Voxel {
-  Eigen::Vector3i index{-1, -1, -1};      // voxel index
+  Eigen::Vector3i index{-1, -1, -1};  // voxel index
   int id{-1};
   Eigen::Vector3f pos{0.0f, 0.0f, 0.0f};  // center of voxel
   float sdf{0.0f};  // Signed Distance Function (SDF) value
