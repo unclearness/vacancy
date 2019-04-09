@@ -212,10 +212,7 @@ bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
 
   float offset = resolution_ * 0.5f;
 
-  const float min_dist =
-      std::numeric_limits<float>::lowest();  // std::max(std::max(diff[0],
-                                             // diff[1]), diff[2]);
-
+  const float min_dist = std::numeric_limits<float>::lowest();
 #if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
 #pragma omp parallel for schedule(dynamic, 1)
 #endif
@@ -356,6 +353,12 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
           continue;
         }
 
+        if (voxel->update_num < 1) {
+          voxel->sdf = dist;
+          voxel->update_num++;
+          continue;
+        }
+
         if (option_.update_option.voxel_update == VoxelUpdate::kMax) {
           if (dist > voxel->sdf) {
             voxel->sdf = dist;
@@ -363,14 +366,10 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
           }
         } else if (option_.update_option.voxel_update ==
                    VoxelUpdate::kWeightedAverage) {
-          if (voxel->update_num < 1) {
-            voxel->sdf = dist;
-          } else {
-            const float& w = option_.update_option.voxel_update_weight;
-            const float inv_denom = 1.0f / (w * (voxel->update_num + 1));
-            voxel->sdf =
-                (w * voxel->update_num * voxel->sdf + w * dist) * inv_denom;
-          }
+          const float& w = option_.update_option.voxel_update_weight;
+          const float inv_denom = 1.0f / (w * (voxel->update_num + 1));
+          voxel->sdf =
+              (w * voxel->update_num * voxel->sdf + w * dist) * inv_denom;
           voxel->update_num++;
         }
       }
