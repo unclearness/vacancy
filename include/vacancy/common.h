@@ -6,8 +6,9 @@
 #pragma once
 
 #include <cassert>
-#include <limits>
 #include <iomanip>
+#include <limits>
+#include <string>
 
 #include "Eigen/Geometry"
 #include "vacancy/log.h"

@@ -7,8 +7,12 @@
 // http://paulbourke.net/geometry/polygonise/
 
 #include "vacancy/marching_cubes.h"
+
 #include <array>
 #include <map>
+#include <utility>
+#include <vector>
+
 #include "vacancy/timer.h"
 
 namespace {

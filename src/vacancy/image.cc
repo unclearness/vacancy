@@ -109,4 +109,4 @@ void FaceId2RandomColor(const Image1i& face_id, Image3b* vis_face_id) {
   }
 }
 
-}  // namespace currender
+}  // namespace vacancy

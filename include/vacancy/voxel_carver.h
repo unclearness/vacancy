@@ -5,6 +5,10 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "vacancy/camera.h"
 #include "vacancy/common.h"
 #include "vacancy/image.h"
@@ -80,7 +84,7 @@ class VoxelCarver {
  public:
   VoxelCarver();
   ~VoxelCarver();
-  VoxelCarver(VoxelCarverOption option);
+  explicit VoxelCarver(VoxelCarverOption option);
   void set_option(VoxelCarverOption option);
   bool Init();
   bool Carve(const Camera& camera, const Image1b& silhouette, Image1f* sdf);

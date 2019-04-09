@@ -156,4 +156,4 @@ void Normal2Color(const Image3f& normal, Image3b* vis_normal);
 
 void FaceId2RandomColor(const Image1i& face_id, Image3b* vis_face_id);
 
-}  // namespace currender
+}  // namespace vacancy
