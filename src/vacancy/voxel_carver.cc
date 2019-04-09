@@ -232,6 +232,8 @@ bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
         voxel->index.y() = y;
         voxel->index.z() = z;
 
+        voxel->id = z * xy_slice_num_ + (y * voxel_num_.x() + x);
+
         voxel->pos.x() = x_pos;
         voxel->pos.y() = y_pos;
         voxel->pos.z() = z_pos;

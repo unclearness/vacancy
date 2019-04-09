@@ -8,6 +8,7 @@
 
 #include "vacancy/marching_cubes.h"
 #include <array>
+#include <map>
 #include "vacancy/timer.h"
 
 namespace {
@@ -294,248 +295,41 @@ int triTable[256][16] = {
     {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}};
 
-struct XYZ {
-  double x, y, z;
-};
-
-typedef struct {
-  XYZ p[3];
-} TRIANGLE_ORG;
-
-typedef struct {
-  XYZ p[8];
-  double val[8];
-} GRIDCELL;
-
 /*
    Linearly interpolate the position where an isosurface cuts
    an edge between two vertices, each with their own scalar value
 */
-XYZ VertexInterp(double isolevel, const XYZ &p1, const XYZ &p2, double valp1,
-                 double valp2) {
-  double mu;
-  XYZ p;
-
-  if (std::abs(isolevel - valp1) < 0.00001) return (p1);
-  if (std::abs(isolevel - valp2) < 0.00001) return (p2);
-  if (std::abs(valp1 - valp2) < 0.00001) return (p1);
-  mu = (isolevel - valp1) / (valp2 - valp1);
-  p.x = p1.x + mu * (p2.x - p1.x);
-  p.y = p1.y + mu * (p2.y - p1.y);
-  p.z = p1.z + mu * (p2.z - p1.z);
-
-  return (p);
-}
-
-/*
-   Given a grid cell and an isolevel, calculate the triangular
-   facets required to represent the isosurface through the cell.
-   Return the number of triangular facets, the array "triangles"
-   will be loaded up with the vertices at most 5 triangular facets.
-        0 will be returned if the grid cell is either totally above
-   of totally below the isolevel.
-*/
-int Polygonise(const GRIDCELL &grid, double isolevel, TRIANGLE_ORG *triangles) {
-  int i, ntriang;
-  int cubeindex;
-  XYZ vertlist[12];
-
-  /*
-     Determine the index into the edge table which
-     tells us which vertices are inside of the surface
-  */
-  cubeindex = 0;
-  if (grid.val[0] < isolevel) cubeindex |= 1;
-  if (grid.val[1] < isolevel) cubeindex |= 2;
-  if (grid.val[2] < isolevel) cubeindex |= 4;
-  if (grid.val[3] < isolevel) cubeindex |= 8;
-  if (grid.val[4] < isolevel) cubeindex |= 16;
-  if (grid.val[5] < isolevel) cubeindex |= 32;
-  if (grid.val[6] < isolevel) cubeindex |= 64;
-  if (grid.val[7] < isolevel) cubeindex |= 128;
-
-  /* Cube is entirely in/out of the surface */
-  if (edgeTable[cubeindex] == 0) return (0);
-
-  /* Find the vertices where the surface intersects the cube */
-  if (edgeTable[cubeindex] & 1)
-    vertlist[0] =
-        VertexInterp(isolevel, grid.p[0], grid.p[1], grid.val[0], grid.val[1]);
-  if (edgeTable[cubeindex] & 2)
-    vertlist[1] =
-        VertexInterp(isolevel, grid.p[1], grid.p[2], grid.val[1], grid.val[2]);
-  if (edgeTable[cubeindex] & 4)
-    vertlist[2] =
-        VertexInterp(isolevel, grid.p[2], grid.p[3], grid.val[2], grid.val[3]);
-  if (edgeTable[cubeindex] & 8)
-    vertlist[3] =
-        VertexInterp(isolevel, grid.p[3], grid.p[0], grid.val[3], grid.val[0]);
-  if (edgeTable[cubeindex] & 16)
-    vertlist[4] =
-        VertexInterp(isolevel, grid.p[4], grid.p[5], grid.val[4], grid.val[5]);
-  if (edgeTable[cubeindex] & 32)
-    vertlist[5] =
-        VertexInterp(isolevel, grid.p[5], grid.p[6], grid.val[5], grid.val[6]);
-  if (edgeTable[cubeindex] & 64)
-    vertlist[6] =
-        VertexInterp(isolevel, grid.p[6], grid.p[7], grid.val[6], grid.val[7]);
-  if (edgeTable[cubeindex] & 128)
-    vertlist[7] =
-        VertexInterp(isolevel, grid.p[7], grid.p[4], grid.val[7], grid.val[4]);
-  if (edgeTable[cubeindex] & 256)
-    vertlist[8] =
-        VertexInterp(isolevel, grid.p[0], grid.p[4], grid.val[0], grid.val[4]);
-  if (edgeTable[cubeindex] & 512)
-    vertlist[9] =
-        VertexInterp(isolevel, grid.p[1], grid.p[5], grid.val[1], grid.val[5]);
-  if (edgeTable[cubeindex] & 1024)
-    vertlist[10] =
-        VertexInterp(isolevel, grid.p[2], grid.p[6], grid.val[2], grid.val[6]);
-  if (edgeTable[cubeindex] & 2048)
-    vertlist[11] =
-        VertexInterp(isolevel, grid.p[3], grid.p[7], grid.val[3], grid.val[7]);
-
-  /* Create the triangle */
-  ntriang = 0;
-  for (i = 0; triTable[cubeindex][i] != -1; i += 3) {
-    triangles[ntriang].p[0] = vertlist[triTable[cubeindex][i]];
-    triangles[ntriang].p[1] = vertlist[triTable[cubeindex][i + 1]];
-    triangles[ntriang].p[2] = vertlist[triTable[cubeindex][i + 2]];
-    ntriang++;
-  }
-
-  return (ntriang);
-}
-
-#if 0
-				mpVector LinearInterp(mp4Vector p1, mp4Vector p2, float value) {
-  if (p2 < p1) {
-    mp4Vector temp;
-    temp = p1;
-    p1 = p2;
-    p2 = temp;
-  }
-
-  mpVector p;
-  if (fabs(p1.val - p2.val) > 0.00001)
-    p = (mpVector)p1 +
-        ((mpVector)p2 - (mpVector)p1) / (p2.val - p1.val) * (value - p1.val);
-  else
-    p = (mpVector)p1;
-  return p;
-}
-
-bool operator<(const mp4Vector &right) const {
-  if (x < right.x)
-    return true;
-  else if (x > right.x)
-    return false;
-
-  if (y < right.y)
-    return true;
-  else if (y > right.y)
-    return false;
-
-  if (z < right.z)
-    return true;
-  else if (z > right.z)
-    return false;
-
-  return false;
-}
-#endif  // 0
-
-void Eigen2XYZ(const Eigen::Vector3f &vec, XYZ *p) {
-  p->x = vec.x();
-  p->y = vec.y();
-  p->z = vec.z();
-  return;
-}
-
-// binalize SDF to ensure interpolated points are always on the middle points of
-// cube edge, which means no linear interpolation
-inline void CutOff(double *val, double min_val = -1.0f, double max_val = 1.0f) {
-  if (*val > 0) {
-    *val = max_val;
+void VertexInterp(double isolevel, const Eigen::Vector3f &p1,
+                  const Eigen::Vector3f &p2, double valp1, double valp2,
+                  Eigen::Vector3f *p) {
+  if (std::abs(isolevel - valp1) < 0.00001) {
+    *p = p1;
     return;
   }
-  *val = min_val;
+  if (std::abs(isolevel - valp2) < 0.00001) {
+    *p = p2;
+    return;
+  }
+  if (std::abs(valp1 - valp2) < 0.00001) {
+    *p = p1;
+    return;
+  }
+  double mu = (isolevel - valp1) / (valp2 - valp1);
+  p->x() = static_cast<float>(p1.x() + mu * (p2.x() - p1.x()));
+  p->y() = static_cast<float>(p1.y() + mu * (p2.y() - p1.y()));
+  p->z() = static_cast<float>(p1.z() + mu * (p2.z() - p1.z()));
 }
 
-struct Triangle {
-  std::array<Eigen::Vector3f, 3> vertices;
-  Eigen::Vector3i indices{-1, -1, -1};  // index in unified mesh
-
-  bool has_same_vertex(const Eigen::Vector3f &v, int *index) const {
-    bool has_vertex{false};
-    for (int i = 0; i < 3; i++) {
-      if (indices[i] < 0) {
-        break;
-      }
-      if (std::abs(vertices[i].x() - v.x()) <
-              std::numeric_limits<float>::min() &&
-          std::abs(vertices[i].y() - v.y()) <
-              std::numeric_limits<float>::min() &&
-          std::abs(vertices[i].z() - v.z()) <
-              std::numeric_limits<float>::min()) {
-        has_vertex = true;
-        *index = indices[i];
-        break;
-      }
-    }
-    return has_vertex;
-  }
-};
-
-using TriangleList = std::vector<Triangle>;
-class TrianglesInVoxelGrid {
-  Eigen::Vector3i voxel_num_{0, 0, 0};
-  int xy_slice_num_{0};
-  std::vector<TriangleList> triangles;
-
- public:
-  TrianglesInVoxelGrid() {}
-  ~TrianglesInVoxelGrid() {}
-  TrianglesInVoxelGrid(int x_num, int y_num, int z_num) {
-    voxel_num_.x() = x_num;
-    voxel_num_.y() = y_num;
-    voxel_num_.z() = z_num;
-
-    xy_slice_num_ = voxel_num_.y() * voxel_num_.x();
-
-    triangles.resize(xy_slice_num_ * voxel_num_.z());
-  }
-  const TriangleList &get(int x, int y, int z) {
-    return triangles[z * xy_slice_num_ + (y * voxel_num_.x() + x)];
-  }
-  TriangleList *get_ptr(int x, int y, int z) {
-    return &triangles[z * xy_slice_num_ + (y * voxel_num_.x() + x)];
-  }
-};
-
-bool CheckVertexExistence(
-    const Eigen::Vector3f &v,
-    const std::vector<const TriangleList *> &prev_list_list, int *index) {
-  bool exists{false};
-
-  for (int i = 0; i < static_cast<int>(prev_list_list.size()); i++) {
-    for (int j = 0; j < static_cast<int>(prev_list_list[i]->size()); j++) {
-      exists = (*(prev_list_list[i]))[j].has_same_vertex(v, index);
-      if (exists) {
-        break;
-      }
-    }
-  }
-
-  return exists;
+void VertexInterp(double iso_level, const vacancy::Voxel &v1,
+                  const vacancy::Voxel &v2, Eigen::Vector3f *p) {
+  VertexInterp(iso_level, v1.pos, v2.pos, v1.sdf, v2.sdf, p);
 }
 
 }  // namespace
 
 namespace vacancy {
 
-void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level,
-                   bool linear_interp) {
+void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
   Timer<> timer;
   timer.Start();
 
@@ -543,16 +337,12 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level,
 
   const Eigen::Vector3i &voxel_num = voxel_grid.voxel_num();
 
-  TrianglesInVoxelGrid triangles_in_voxel_grid(voxel_num.x(), voxel_num.y(),
-                                               voxel_num.z());
-
   std::vector<Eigen::Vector3f> vertices;
   std::vector<Eigen::Vector3i> vertex_indices;
 
-  // computer per voxel triangles
-#if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
-#pragma omp parallel for schedule(dynamic, 1)
-#endif
+  // todo: consider faster way... maybe unordered_map?
+  std::map<std::pair<int, int>, int> voxelids2vertexid;
+
   for (int z = 1; z < voxel_num.z(); z++) {
     for (int y = 1; y < voxel_num.y(); y++) {
       for (int x = 1; x < voxel_num.x(); x++) {
@@ -560,85 +350,105 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level,
           continue;
         }
 
-        GRIDCELL grid;
-        std::array<const Voxel *, 8> voxel_list;
-        voxel_list[0] = &voxel_grid.get(x - 1, y - 1, z - 1);
-        voxel_list[1] = &voxel_grid.get(x, y - 1, z - 1);
-        voxel_list[2] = &voxel_grid.get(x, y, z - 1);
-        voxel_list[3] = &voxel_grid.get(x - 1, y, z - 1);
+        std::array<const Voxel *, 8> voxels;
+        voxels[0] = &voxel_grid.get(x - 1, y - 1, z - 1);
+        voxels[1] = &voxel_grid.get(x, y - 1, z - 1);
+        voxels[2] = &voxel_grid.get(x, y, z - 1);
+        voxels[3] = &voxel_grid.get(x - 1, y, z - 1);
 
-        voxel_list[4] = &voxel_grid.get(x - 1, y - 1, z);
-        voxel_list[5] = &voxel_grid.get(x, y - 1, z);
-        voxel_list[6] = &voxel_grid.get(x, y, z);
-        voxel_list[7] = &voxel_grid.get(x - 1, y, z);
+        voxels[4] = &voxel_grid.get(x - 1, y - 1, z);
+        voxels[5] = &voxel_grid.get(x, y - 1, z);
+        voxels[6] = &voxel_grid.get(x, y, z);
+        voxels[7] = &voxel_grid.get(x - 1, y, z);
 
-        for (int i = 0; i < 8; i++) {
-          Eigen2XYZ(voxel_list[i]->pos, &grid.p[i]);
-          grid.val[i] = voxel_list[i]->sdf;
-        }
+        int cubeindex{0};
+        std::array<Eigen::Vector3f, 12> vert_list;
+        std::array<std::pair<int, int>, 12> voxelids_list;
+        /*
+           Determine the index into the edge table which
+           tells us which vertices are inside of the surface
+        */
+        if (voxels[0]->sdf < iso_level) cubeindex |= 1;
+        if (voxels[1]->sdf < iso_level) cubeindex |= 2;
+        if (voxels[2]->sdf < iso_level) cubeindex |= 4;
+        if (voxels[3]->sdf < iso_level) cubeindex |= 8;
+        if (voxels[4]->sdf < iso_level) cubeindex |= 16;
+        if (voxels[5]->sdf < iso_level) cubeindex |= 32;
+        if (voxels[6]->sdf < iso_level) cubeindex |= 64;
+        if (voxels[7]->sdf < iso_level) cubeindex |= 128;
 
-        if (!linear_interp) {
-          // set 1.0 or -1.0 to disable linear interpolation
-          for (int i = 0; i < 8; i++) {
-            CutOff(&grid.val[i]);
-          }
-        }
-
-        TRIANGLE_ORG triangles[5];
-        int tri_num = Polygonise(grid, iso_level, triangles);
-        TriangleList *current_list = triangles_in_voxel_grid.get_ptr(x, y, z);
-        for (int i = 0; i < tri_num; i++) {
-          Triangle tri;
-          for (int j = 0; j < 3; j++) {
-            // inverse order
-            tri.vertices[2 - j].x() = static_cast<float>(triangles[i].p[j].x);
-            tri.vertices[2 - j].y() = static_cast<float>(triangles[i].p[j].y);
-            tri.vertices[2 - j].z() = static_cast<float>(triangles[i].p[j].z);
-          }
-          current_list->push_back(tri);
-        }
-      }
-    }
-  }
-
-  // unify triangles
-  for (int z = 1; z < voxel_num.z(); z++) {
-    for (int y = 1; y < voxel_num.y(); y++) {
-      for (int x = 1; x < voxel_num.x(); x++) {
-        TriangleList *current_list = triangles_in_voxel_grid.get_ptr(x, y, z);
-
-        if (current_list->empty()) {
+        /* Cube is entirely in/out of the surface */
+        if (edgeTable[cubeindex] == 0) {
           continue;
         }
 
-        // check previously updated and adjacent 7 voxels
-        // todo: really correct?
-        std::vector<const TriangleList *> prev_list_list;
-        prev_list_list.push_back(
-            triangles_in_voxel_grid.get_ptr(x - 1, y - 1, z - 1));
-        prev_list_list.push_back(
-            triangles_in_voxel_grid.get_ptr(x, y - 1, z - 1));
-        prev_list_list.push_back(triangles_in_voxel_grid.get_ptr(x, y, z - 1));
-        prev_list_list.push_back(
-            triangles_in_voxel_grid.get_ptr(x - 1, y, z - 1));
-        prev_list_list.push_back(
-            triangles_in_voxel_grid.get_ptr(x - 1, y - 1, z));
-        prev_list_list.push_back(triangles_in_voxel_grid.get_ptr(x, y - 1, z));
-        prev_list_list.push_back(triangles_in_voxel_grid.get_ptr(x - 1, y, z));
+        /* Find the vertices where the surface intersects the cube */
+        if (edgeTable[cubeindex] & 1) {
+          VertexInterp(iso_level, *voxels[0], *voxels[1], &vert_list[0]);
+          voxelids_list[0] = std::make_pair(voxels[0]->id, voxels[1]->id);
+        }
+        if (edgeTable[cubeindex] & 2) {
+          VertexInterp(iso_level, *voxels[1], *voxels[2], &vert_list[1]);
+          voxelids_list[1] = std::make_pair(voxels[1]->id, voxels[2]->id);
+        }
+        if (edgeTable[cubeindex] & 4) {
+          VertexInterp(iso_level, *voxels[2], *voxels[3], &vert_list[2]);
+          voxelids_list[2] = std::make_pair(voxels[3]->id, voxels[2]->id);
+        }
+        if (edgeTable[cubeindex] & 8) {
+          VertexInterp(iso_level, *voxels[3], *voxels[0], &vert_list[3]);
+          voxelids_list[3] = std::make_pair(voxels[0]->id, voxels[3]->id);
+        }
+        if (edgeTable[cubeindex] & 16) {
+          VertexInterp(iso_level, *voxels[4], *voxels[5], &vert_list[4]);
+          voxelids_list[4] = std::make_pair(voxels[4]->id, voxels[5]->id);
+        }
+        if (edgeTable[cubeindex] & 32) {
+          VertexInterp(iso_level, *voxels[5], *voxels[6], &vert_list[5]);
+          voxelids_list[5] = std::make_pair(voxels[5]->id, voxels[6]->id);
+        }
+        if (edgeTable[cubeindex] & 64) {
+          VertexInterp(iso_level, *voxels[6], *voxels[7], &vert_list[6]);
+          voxelids_list[6] = std::make_pair(voxels[7]->id, voxels[6]->id);
+        }
+        if (edgeTable[cubeindex] & 128) {
+          VertexInterp(iso_level, *voxels[7], *voxels[4], &vert_list[7]);
+          voxelids_list[7] = std::make_pair(voxels[4]->id, voxels[7]->id);
+        }
+        if (edgeTable[cubeindex] & 256) {
+          VertexInterp(iso_level, *voxels[0], *voxels[4], &vert_list[8]);
+          voxelids_list[8] = std::make_pair(voxels[0]->id, voxels[4]->id);
+        }
+        if (edgeTable[cubeindex] & 512) {
+          VertexInterp(iso_level, *voxels[1], *voxels[5], &vert_list[9]);
+          voxelids_list[9] = std::make_pair(voxels[1]->id, voxels[5]->id);
+        }
+        if (edgeTable[cubeindex] & 1024) {
+          VertexInterp(iso_level, *voxels[2], *voxels[6], &vert_list[10]);
+          voxelids_list[10] = std::make_pair(voxels[2]->id, voxels[6]->id);
+        }
+        if (edgeTable[cubeindex] & 2048) {
+          VertexInterp(iso_level, *voxels[3], *voxels[7], &vert_list[11]);
+          voxelids_list[11] = std::make_pair(voxels[3]->id, voxels[7]->id);
+        }
 
-        for (int i = 0; i < static_cast<int>(current_list->size()); i++) {
-          Triangle &tri = (*current_list)[i];
+        for (int i = 0; triTable[cubeindex][i] != -1; i += 3) {
+          Eigen::Vector3i face;
+
           for (int j = 0; j < 3; j++) {
-            bool exists = CheckVertexExistence(tri.vertices[j], prev_list_list,
-                                               &tri.indices[j]);
-
-            // make new vertex and its index if it has not been added
-            if (!exists) {
-              tri.indices[j] = static_cast<int>(vertices.size());
-              vertices.push_back(tri.vertices[j]);
+            const std::pair<int, int> &key =
+                voxelids_list[triTable[cubeindex][i + (2 - j)]];
+            if (voxelids2vertexid.find(key) == voxelids2vertexid.end()) {
+              // new vertex
+              face[j] = static_cast<int>(vertices.size());
+              vertices.push_back(vert_list[triTable[cubeindex][i + (2 - j)]]);
+              voxelids2vertexid.insert(std::make_pair(key, face[j]));
+            } else {
+              // existing vertex
+              face[j] = voxelids2vertexid.at(key);
             }
           }
-          vertex_indices.push_back(tri.indices);
+          vertex_indices.push_back(face);
         }
       }
     }
@@ -646,10 +456,6 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level,
 
   mesh->set_vertices(vertices);
   mesh->set_vertex_indices(vertex_indices);
-
-  // todo: don't use this
-  // tooooo slow
-  mesh->RemoveDuplicatedVertices();
 
   timer.End();
   LOGI("MarchingCubes %02f\n", timer.elapsed_msec());
