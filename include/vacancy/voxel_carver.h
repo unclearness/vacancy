@@ -78,9 +78,6 @@ class VoxelCarver {
   VoxelCarverOption option_;
   std::unique_ptr<VoxelGrid> voxel_grid_;
 
-  void UpdateOnSurface();
-  void UpdateOnSurfaceWithPseudo();
-
  public:
   VoxelCarver();
   ~VoxelCarver();

@@ -10,9 +10,9 @@
 #include <memory>
 #include <vector>
 
-namespace vacancy {
+namespace {
 
-void UpdateOnSurface(VoxelGrid* voxel_grid) {
+void UpdateOnSurface(vacancy::VoxelGrid* voxel_grid) {
   // raycast like surface detection
   // search xyz axes to detect the voxel on sign change
 
@@ -24,8 +24,8 @@ void UpdateOnSurface(VoxelGrid* voxel_grid) {
   for (int z = 0; z < voxel_num.z(); z++) {
     for (int y = 0; y < voxel_num.y(); y++) {
       for (int x = 1; x < voxel_num.x(); x++) {
-        const Voxel& prev_voxel = voxel_grid->get(x - 1, y, z);
-        Voxel* voxel = voxel_grid->get_ptr(x, y, z);
+        const vacancy::Voxel& prev_voxel = voxel_grid->get(x - 1, y, z);
+        vacancy::Voxel* voxel = voxel_grid->get_ptr(x, y, z);
         if (voxel->update_num < 1 || prev_voxel.update_num < 1) {
           continue;
         }
@@ -43,8 +43,8 @@ void UpdateOnSurface(VoxelGrid* voxel_grid) {
   for (int z = 0; z < voxel_num.z(); z++) {
     for (int x = 0; x < voxel_num.x(); x++) {
       for (int y = 1; y < voxel_num.y(); y++) {
-        const Voxel& prev_voxel = voxel_grid->get(x, y - 1, z);
-        Voxel* voxel = voxel_grid->get_ptr(x, y, z);
+        const vacancy::Voxel& prev_voxel = voxel_grid->get(x, y - 1, z);
+        vacancy::Voxel* voxel = voxel_grid->get_ptr(x, y, z);
         if (voxel->update_num < 1 || prev_voxel.update_num < 1) {
           continue;
         }
@@ -62,8 +62,8 @@ void UpdateOnSurface(VoxelGrid* voxel_grid) {
   for (int y = 0; y < voxel_num.y(); y++) {
     for (int x = 0; x < voxel_num.x(); x++) {
       for (int z = 1; z < voxel_num.z(); z++) {
-        const Voxel& prev_voxel = voxel_grid->get(x, y, z - 1);
-        Voxel* voxel = voxel_grid->get_ptr(x, y, z);
+        const vacancy::Voxel& prev_voxel = voxel_grid->get(x, y, z - 1);
+        vacancy::Voxel* voxel = voxel_grid->get_ptr(x, y, z);
         if (voxel->update_num < 1 || prev_voxel.update_num < 1) {
           continue;
         }
@@ -78,7 +78,7 @@ void UpdateOnSurface(VoxelGrid* voxel_grid) {
   }
 }
 
-void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
+void UpdateOnSurfaceWithPseudo(vacancy::VoxelGrid* voxel_grid) {
   // raycast like surface detection
   // search xyz axes bidirectionally to detect the voxel whose sign changes from
   // + to -
@@ -96,7 +96,7 @@ void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int x = 0; x < voxel_num.x(); x++) {
-          const Voxel& voxel = voxel_grid->get(x, y, z);
+          const vacancy::Voxel& voxel = voxel_grid->get(x, y, z);
 
           if (voxel.update_num < 1) {
             continue;
@@ -118,7 +118,7 @@ void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int x = voxel_num.x() - 1; 0 <= x; x--) {
-          const Voxel& voxel = voxel_grid->get(x, y, z);
+          const vacancy::Voxel& voxel = voxel_grid->get(x, y, z);
 
           if (voxel.update_num < 1) {
             continue;
@@ -154,7 +154,7 @@ void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int y = 0; y < voxel_num.y(); y++) {
-          const Voxel& voxel = voxel_grid->get(x, y, z);
+          const vacancy::Voxel& voxel = voxel_grid->get(x, y, z);
           if (voxel.update_num < 1) {
             continue;
           }
@@ -174,7 +174,7 @@ void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int y = voxel_num.y() - 1; 0 <= y; y--) {
-          const Voxel& voxel = voxel_grid->get(x, y, z);
+          const vacancy::Voxel& voxel = voxel_grid->get(x, y, z);
           if (voxel.update_num < 1) {
             continue;
           }
@@ -208,7 +208,7 @@ void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int z = 0; z < voxel_num.z(); z++) {
-          const Voxel& voxel = voxel_grid->get(x, y, z);
+          const vacancy::Voxel& voxel = voxel_grid->get(x, y, z);
           if (voxel.update_num < 1) {
             continue;
           }
@@ -228,7 +228,7 @@ void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
       {
         float min_sdf = std::numeric_limits<float>::max();
         for (int z = voxel_num.z() - 1; 0 <= z; z--) {
-          const Voxel& voxel = voxel_grid->get(x, y, z);
+          const vacancy::Voxel& voxel = voxel_grid->get(x, y, z);
           if (voxel.update_num < 1) {
             continue;
           }
@@ -252,7 +252,9 @@ void UpdateOnSurfaceWithPseudo(VoxelGrid* voxel_grid) {
     }
   }
 }
+}  // namespace
 
+namespace vacancy {
 void ExtractVoxel(VoxelGrid* voxel_grid, float resolution, Mesh* mesh,
                   bool inside_empty, bool with_pseudo_surface) {
   const Eigen::Vector3i& voxel_num = voxel_grid->voxel_num();

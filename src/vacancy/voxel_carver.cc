@@ -402,14 +402,6 @@ bool VoxelCarver::Carve(const std::vector<Camera>& cameras,
   return true;
 }
 
-void VoxelCarver::UpdateOnSurface() {
-  vacancy::UpdateOnSurface(voxel_grid_.get());
-}
-
-void VoxelCarver::UpdateOnSurfaceWithPseudo() {
-  vacancy::UpdateOnSurfaceWithPseudo(voxel_grid_.get());
-}
-
 void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty,
                                bool with_pseudo_surface) {
   Timer<> timer;
