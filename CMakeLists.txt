@@ -86,6 +86,8 @@ add_library(${PUBLIC_LIB_NAME}
   src/vacancy/voxel_carver.cc
   src/vacancy/marching_cubes.h
   src/vacancy/marching_cubes.cc
+  src/vacancy/marching_cubes_lut.h
+  src/vacancy/marching_cubes_lut.cc
 
   # implementations of header-only library
   ${VACANCY_STB_IMPLEMENTATION_CC}
@@ -106,6 +108,7 @@ SOURCE_GROUP("Public header files" FILES
 SOURCE_GROUP("Private header files" FILES
   src/vacancy/timer.h
   src/vacancy/marching_cubes.h
+  src/vacancy/marching_cubes_lut.h
 )
 
 SOURCE_GROUP("Source files" FILES
@@ -115,6 +118,7 @@ SOURCE_GROUP("Source files" FILES
   src/vacancy/log.cc
   src/vacancy/voxel_carver.cc
   src/vacancy/marching_cubes.cc
+  src/vacancy/marching_cubes_lut.cc
 )
 
 include_directories(${PUBLIC_LIB_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/include)
