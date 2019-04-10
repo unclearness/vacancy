@@ -407,8 +407,8 @@ void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty,
   Timer<> timer;
   timer.Start();
 
-  vacancy::ExtractVoxel(voxel_grid_.get(), option_.resolution, mesh,
-                        inside_empty, with_pseudo_surface);
+  vacancy::ExtractVoxel(voxel_grid_.get(), mesh, inside_empty,
+                        with_pseudo_surface);
 
   timer.End();
   LOGI("VoxelCarver::ExtractVoxel %02f\n", timer.elapsed_msec());

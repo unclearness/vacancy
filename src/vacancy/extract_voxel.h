@@ -9,7 +9,7 @@
 
 namespace vacancy {
 
-void ExtractVoxel(VoxelGrid* voxel_grid, float resolution, Mesh* mesh,
-                  bool inside_empty, bool with_pseudo_surface);
+void ExtractVoxel(VoxelGrid* voxel_grid, Mesh* mesh, bool inside_empty,
+                  bool with_pseudo_surface);
 
 }  // namespace vacancy

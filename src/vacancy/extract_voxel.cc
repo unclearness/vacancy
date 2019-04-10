@@ -255,8 +255,8 @@ void UpdateOnSurfaceWithPseudo(vacancy::VoxelGrid* voxel_grid) {
 }  // namespace
 
 namespace vacancy {
-void ExtractVoxel(VoxelGrid* voxel_grid, float resolution, Mesh* mesh,
-                  bool inside_empty, bool with_pseudo_surface) {
+void ExtractVoxel(VoxelGrid* voxel_grid, Mesh* mesh, bool inside_empty,
+                  bool with_pseudo_surface) {
   const Eigen::Vector3i& voxel_num = voxel_grid->voxel_num();
 
   mesh->Clear();
@@ -264,7 +264,7 @@ void ExtractVoxel(VoxelGrid* voxel_grid, float resolution, Mesh* mesh,
   std::vector<Eigen::Vector3f> vertices;
   std::vector<Eigen::Vector3i> vertex_indices;
 
-  std::shared_ptr<Mesh> cube = MakeCube(resolution);
+  std::shared_ptr<Mesh> cube = MakeCube(voxel_grid->resolution());
 
   // update on_surface flag of voxels
   if (inside_empty) {
