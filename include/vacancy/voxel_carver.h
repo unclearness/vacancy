@@ -19,7 +19,7 @@ namespace vacancy {
 // Voxel update type
 enum class VoxelUpdate {
   kMax = 0,             // take max. naive voxel carving
-  kWeightedAverage = 1  // weighted Average like KinectFusion. truncation is
+  kWeightedAverage = 1  // weighted average like KinectFusion. truncation is
                         // necessary to get good result
 };
 
@@ -39,16 +39,15 @@ struct VoxelUpdateOption {
   int voxel_max_update_num{
       255};  // After updating voxel_max_update_num, no sdf update
   float voxel_update_weight{1.0f};  // only valid if kWeightedAverage is set
-  bool use_truncation{true};
+  bool use_truncation{false};
   float truncation_band{0.1f};  // only positive value is valid
 };
 
 struct VoxelCarverOption {
   Eigen::Vector3f bb_max;
   Eigen::Vector3f bb_min;
-  float resolution{0.001f};
+  float resolution{0.1f};  // default is 10cm if input is m-scale
   bool sdf_minmax_normalize{true};
-  std::string debug_dir{""};
   VoxelUpdateOption update_option;
 };
 
@@ -102,8 +101,7 @@ class VoxelCarver {
   bool Carve(const Camera& camera, const Image1b& silhouette);
   bool Carve(const std::vector<Camera>& cameras,
              const std::vector<Image1b>& silhouettes);
-  void ExtractVoxel(Mesh* mesh, bool inside_empty = true,
-                    bool with_pseudo_surface = false);
+  void ExtractVoxel(Mesh* mesh, bool inside_empty = false);
   void ExtractIsoSurface(Mesh* mesh, double iso_level = 0.0);
 };
 

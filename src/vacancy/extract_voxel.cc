@@ -255,8 +255,7 @@ void UpdateOnSurfaceWithPseudo(vacancy::VoxelGrid* voxel_grid) {
 }  // namespace
 
 namespace vacancy {
-void ExtractVoxel(VoxelGrid* voxel_grid, Mesh* mesh, bool inside_empty,
-                  bool with_pseudo_surface) {
+void ExtractVoxel(VoxelGrid* voxel_grid, Mesh* mesh, bool inside_empty) {
   const Eigen::Vector3i& voxel_num = voxel_grid->voxel_num();
 
   mesh->Clear();
@@ -270,11 +269,7 @@ void ExtractVoxel(VoxelGrid* voxel_grid, Mesh* mesh, bool inside_empty,
   if (inside_empty) {
     voxel_grid->ResetOnSurface();
 
-    if (with_pseudo_surface) {
-      UpdateOnSurfaceWithPseudo(voxel_grid);
-    } else {
-      UpdateOnSurface(voxel_grid);
-    }
+    UpdateOnSurface(voxel_grid);
   }
 
   for (int z = 0; z < voxel_num.z(); z++) {
@@ -287,7 +282,7 @@ void ExtractVoxel(VoxelGrid* voxel_grid, Mesh* mesh, bool inside_empty,
             // if inside_empty is specified, skip non-surface voxels
             continue;
           }
-        } else if (voxel.sdf > 0 || voxel.update_num < 1 || voxel.outside) {
+        } else if (voxel.sdf > 0 || voxel.update_num < 1) {
           // otherwise, naively skip outside and non-updated voxels
           continue;
         }
