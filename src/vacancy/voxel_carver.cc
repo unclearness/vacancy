@@ -14,9 +14,9 @@
 namespace {
 
 inline float SdfInterpolationNn(const Eigen::Vector2f& image_p,
-                                       const vacancy::Image1f& sdf,
-                                       const Eigen::Vector2i& roi_min,
-                                       const Eigen::Vector2i& roi_max) {
+                                const vacancy::Image1f& sdf,
+                                const Eigen::Vector2i& roi_min,
+                                const Eigen::Vector2i& roi_max) {
   Eigen::Vector2i image_p_i(static_cast<int>(std::round(image_p.x())),
                             static_cast<int>(std::round(image_p.y())));
 
@@ -38,9 +38,9 @@ inline float SdfInterpolationNn(const Eigen::Vector2f& image_p,
 }
 
 inline float SdfInterpolationBiliner(const Eigen::Vector2f& image_p,
-                                            const vacancy::Image1f& sdf,
-                                            const Eigen::Vector2i& roi_min,
-                                            const Eigen::Vector2i& roi_max) {
+                                     const vacancy::Image1f& sdf,
+                                     const Eigen::Vector2i& roi_min,
+                                     const Eigen::Vector2i& roi_max) {
   std::array<int, 2> pos_min = {{0, 0}};
   std::array<int, 2> pos_max = {{0, 0}};
   pos_min[0] = static_cast<int>(std::floor(image_p[0]));
@@ -75,6 +75,24 @@ inline float SdfInterpolationBiliner(const Eigen::Vector2f& image_p,
   return dist;
 }
 
+inline void UpdateVoxelMax(vacancy::Voxel* voxel,
+                           const vacancy::VoxelUpdateOption& option,
+                           float sdf) {
+  (void)option;
+  if (sdf > voxel->sdf) {
+    voxel->sdf = sdf;
+    voxel->update_num++;
+  }
+}
+
+inline void UpdateVoxelWeightedAverage(vacancy::Voxel* voxel,
+                                       const vacancy::VoxelUpdateOption& option,
+                                       float sdf) {
+  const float& w = option.voxel_update_weight;
+  const float inv_denom = 1.0f / (w * (voxel->update_num + 1));
+  voxel->sdf = (w * voxel->update_num * voxel->sdf + w * sdf) * inv_denom;
+  voxel->update_num++;
+}
 }  // namespace
 
 namespace vacancy {
@@ -399,6 +417,14 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
     interpolate_sdf = SdfInterpolationBiliner;
   }
 
+  std::function<void(Voxel*, const VoxelUpdateOption&, float)> update_voxel;
+  if (option_.update_option.voxel_update == VoxelUpdate::kMax) {
+    update_voxel = UpdateVoxelMax;
+  } else if (option_.update_option.voxel_update ==
+             VoxelUpdate::kWeightedAverage) {
+    update_voxel = UpdateVoxelWeightedAverage;
+  }
+
   timer.Start();
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
   const Eigen::Affine3f& w2c = camera.w2c().cast<float>();
@@ -443,19 +469,7 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
           continue;
         }
 
-        if (option_.update_option.voxel_update == VoxelUpdate::kMax) {
-          if (dist > voxel->sdf) {
-            voxel->sdf = dist;
-            voxel->update_num++;
-          }
-        } else if (option_.update_option.voxel_update ==
-                   VoxelUpdate::kWeightedAverage) {
-          const float& w = option_.update_option.voxel_update_weight;
-          const float inv_denom = 1.0f / (w * (voxel->update_num + 1));
-          voxel->sdf =
-              (w * voxel->update_num * voxel->sdf + w * dist) * inv_denom;
-          voxel->update_num++;
-        }
+        update_voxel(voxel, option_.update_option, dist);
       }
     }
   }
