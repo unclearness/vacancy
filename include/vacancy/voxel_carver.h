@@ -23,12 +23,19 @@ enum class VoxelUpdate {
                         // necessary to get good result
 };
 
+// Interpolation method for 2D SDF
+enum class SdfInterpolation {
+  kNn = 0,       // Nearest Neigbor
+  kBilinear = 1  // Bilinear interpolation
+};
+
 struct InvalidSdf {
-  const static float kVal;
+  static const float kVal;
 };
 
 struct VoxelUpdateOption {
   VoxelUpdate voxel_update{VoxelUpdate::kMax};
+  SdfInterpolation sdf_interp{SdfInterpolation::kBilinear};
   int voxel_max_update_num{
       255};  // After updating voxel_max_update_num, no sdf update
   float voxel_update_weight{1.0f};  // only valid if kWeightedAverage is set

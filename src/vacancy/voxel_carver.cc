@@ -5,9 +5,77 @@
 
 #include "vacancy/voxel_carver.h"
 
+#include <array>
+
 #include "vacancy/extract_voxel.h"
 #include "vacancy/marching_cubes.h"
 #include "vacancy/timer.h"
+
+namespace {
+
+inline float SdfInterpolationNn(const Eigen::Vector2f& image_p,
+                                       const vacancy::Image1f& sdf,
+                                       const Eigen::Vector2i& roi_min,
+                                       const Eigen::Vector2i& roi_max) {
+  Eigen::Vector2i image_p_i(static_cast<int>(std::round(image_p.x())),
+                            static_cast<int>(std::round(image_p.y())));
+
+  // really need these?
+  if (image_p_i.x() < roi_min.x()) {
+    image_p_i.x() = roi_min.x();
+  }
+  if (image_p_i.y() < roi_min.y()) {
+    image_p_i.y() = roi_min.y();
+  }
+  if (roi_max.x() < image_p_i.x()) {
+    image_p_i.x() = roi_max.x();
+  }
+  if (roi_max.y() < image_p_i.y()) {
+    image_p_i.y() = roi_max.y();
+  }
+
+  return sdf.at(image_p_i.x(), image_p_i.y(), 0);
+}
+
+inline float SdfInterpolationBiliner(const Eigen::Vector2f& image_p,
+                                            const vacancy::Image1f& sdf,
+                                            const Eigen::Vector2i& roi_min,
+                                            const Eigen::Vector2i& roi_max) {
+  std::array<int, 2> pos_min = {{0, 0}};
+  std::array<int, 2> pos_max = {{0, 0}};
+  pos_min[0] = static_cast<int>(std::floor(image_p[0]));
+  pos_min[1] = static_cast<int>(std::floor(image_p[1]));
+  pos_max[0] = pos_min[0] + 1;
+  pos_max[1] = pos_min[1] + 1;
+
+  // really need these?
+  if (pos_min[0] < roi_min.x()) {
+    pos_min[0] = roi_min.x();
+  }
+  if (pos_min[1] < roi_min.y()) {
+    pos_min[1] = roi_min.y();
+  }
+  if (roi_max.x() < pos_max[0]) {
+    pos_max[0] = roi_max.x();
+  }
+  if (roi_max.y() < pos_max[1]) {
+    pos_max[1] = roi_max.y();
+  }
+
+  float local_u = image_p[0] - pos_min[0];
+  float local_v = image_p[1] - pos_min[1];
+
+  // bilinear interpolation of sdf
+  float dist =
+      (1.0f - local_u) * (1.0f - local_v) * sdf.at(pos_min[0], pos_min[1], 0) +
+      local_u * (1.0f - local_v) * sdf.at(pos_max[0], pos_min[1], 0) +
+      (1.0f - local_u) * local_v * sdf.at(pos_min[0], pos_max[1], 0) +
+      local_u * local_v * sdf.at(pos_max[0], pos_max[1], 0);
+
+  return dist;
+}
+
+}  // namespace
 
 namespace vacancy {
 
@@ -117,7 +185,7 @@ void MakeSignedDistanceField(const Image1b& mask,
   }
 
   if (minmax_normalize) {
-    // todo: fix to adapt roi
+    // Outside of roi is set to 0, so does not affect min/max
     float max_dist =
         *std::max_element(dist->data().begin(), dist->data().end());
     float min_dist =
@@ -141,7 +209,7 @@ void MakeSignedDistanceField(const Image1b& mask,
       for (int x = roi_min.x(); x <= roi_max.x(); x++) {
         float& d = dist->at(x, y, 0);
         if (-truncation_band >= d) {
-          d = std::numeric_limits<float>::lowest();
+          d = InvalidSdf::kVal;
         } else {
           d = std::min(1.0f, d / truncation_band);
         }
@@ -322,6 +390,14 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
                           option_.update_option.truncation_band);
   timer.End();
   LOGI("VoxelCarver::Carve make SDF %02f\n", timer.elapsed_msec());
+  std::function<float(const Eigen::Vector2f&, const vacancy::Image1f&,
+                      const Eigen::Vector2i&, const Eigen::Vector2i&)>
+      interpolate_sdf;
+  if (option_.update_option.sdf_interp == SdfInterpolation::kNn) {
+    interpolate_sdf = SdfInterpolationNn;
+  } else if (option_.update_option.sdf_interp == SdfInterpolation::kBilinear) {
+    interpolate_sdf = SdfInterpolationBiliner;
+  }
 
   timer.Start();
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
@@ -349,14 +425,12 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
 
         camera.Project(voxel_pos_c, &image_p_f);
 
-        Eigen::Vector2i image_p(static_cast<int>(std::round(image_p_f.x())),
-                                static_cast<int>(std::round(image_p_f.y())));
-        if (image_p.x() < roi_min.x() || image_p.y() < roi_min.y() ||
-            roi_max.x() < image_p.x() || roi_max.y() < image_p.y()) {
+        if (image_p_f.x() < roi_min.x() || image_p_f.y() < roi_min.y() ||
+            roi_max.x() < image_p_f.x() || roi_max.y() < image_p_f.y()) {
           continue;
         }
 
-        float dist = sdf->at(image_p.x(), image_p.y(), 0);
+        float dist = interpolate_sdf(image_p_f, *sdf, roi_min, roi_max);
 
         // skip if dist is truncated
         if (option_.update_option.use_truncation && dist < -1.0f) {
