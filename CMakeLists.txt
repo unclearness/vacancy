@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 set(PROJECT_NAME vacancy)
-project(${PROJECT_NAME} LANGUAGES CXX VERSION 0.0.1 DESCRIPTION "A CPU renderer for computer vision")
+project(${PROJECT_NAME} LANGUAGES CXX VERSION 0.0.1 DESCRIPTION "Vacancy: A Voxel Carving implementation in C++")
 
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
 
