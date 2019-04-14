@@ -1,7 +1,7 @@
 # Vacancy: A Voxel Carving implementation in C++
 **Vacancy** is a *Voxel Carving* (a.k.a. *Visual Hull* or *Shape from Silhouette*) implementaion in C++. Inputs are 2D silhouettes (binary mask) of target objects, corresponding camera parameters (both intrinsic and extrinsic) and 3D bounding box to roughly specify the position of the objects. Output is the reconstructed 3D model. In addition to naive one, supports KinectFusion like robust TSDF (Truncated Signed Distance Function) fusion.
 
-# Basic Algorithm
+# Algorithm Overview
 <img src="https://raw.githubusercontent.com/wiki/unclearness/vacancy/images/how_it_works.gif" width="640">
 
 - Initialize 3D voxels according to the input bounding box
@@ -10,7 +10,7 @@
 - Extract explicit 3D mesh from implicit surface representation in the 3D voxels
 
 # Output mesh
-Two mesh extraction methods are supported: voxel and marching cubes. Marching cubes are much better in practice while voxel representation is suitable to understand how the algorithm works.
+Two mesh extraction methods are implemented: voxel and marching cubes. Marching cubes are much better in practice while voxel representation is suitable to understand how the algorithm works.
 
 |voxel|marching cubes|
 |---|---|
