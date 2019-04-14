@@ -23,6 +23,10 @@ enum class VoxelUpdate {
                         // necessary to get good result
 };
 
+struct InvalidSdf {
+  const static float kVal;
+};
+
 struct VoxelUpdateOption {
   VoxelUpdate voxel_update{VoxelUpdate::kMax};
   int voxel_max_update_num{
@@ -84,6 +88,9 @@ class VoxelCarver {
   explicit VoxelCarver(VoxelCarverOption option);
   void set_option(VoxelCarverOption option);
   bool Init();
+  bool Carve(const Camera& camera, const Image1b& silhouette,
+             const Eigen::Vector2i& roi_min, const Eigen::Vector2i& roi_max,
+             Image1f* sdf);
   bool Carve(const Camera& camera, const Image1b& silhouette, Image1f* sdf);
   bool Carve(const Camera& camera, const Image1b& silhouette);
   bool Carve(const std::vector<Camera>& cameras,
@@ -93,8 +100,11 @@ class VoxelCarver {
   void ExtractIsoSurface(Mesh* mesh, double iso_level = 0.0);
 };
 
-void DistanceTransformL1(const Image1b& mask, Image1f* dist);
-void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
+void DistanceTransformL1(const Image1b& mask, const Eigen::Vector2i& roi_min,
+                         const Eigen::Vector2i& roi_max, Image1f* dist);
+void MakeSignedDistanceField(const Image1b& mask,
+                             const Eigen::Vector2i& roi_min,
+                             const Eigen::Vector2i& roi_max, Image1f* dist,
                              bool minmax_normalize, bool use_truncation,
                              float truncation_band);
 void SignedDistance2Color(const Image1f& sdf, Image3b* vis_sdf,

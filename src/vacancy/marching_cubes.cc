@@ -91,6 +91,17 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
         voxels[6] = &voxel_grid.get(x, y, z);
         voxels[7] = &voxel_grid.get(x - 1, y, z);
 
+        if (voxels[0]->sdf == InvalidSdf::kVal ||
+            voxels[1]->sdf == InvalidSdf::kVal ||
+            voxels[2]->sdf == InvalidSdf::kVal ||
+            voxels[3]->sdf == InvalidSdf::kVal ||
+            voxels[4]->sdf == InvalidSdf::kVal ||
+            voxels[5]->sdf == InvalidSdf::kVal ||
+            voxels[6]->sdf == InvalidSdf::kVal ||
+            voxels[7]->sdf == InvalidSdf::kVal) {
+          continue;
+        }
+
         int cube_index{0};
         std::array<Eigen::Vector3f, 12> vert_list;
         std::array<std::pair<int, int>, 12> voxelids_list;

@@ -11,12 +11,15 @@
 
 namespace vacancy {
 
-void DistanceTransformL1(const Image1b& mask, Image1f* dist) {
+const float InvalidSdf::kVal = std::numeric_limits<float>::lowest();
+
+void DistanceTransformL1(const Image1b& mask, const Eigen::Vector2i& roi_min,
+                         const Eigen::Vector2i& roi_max, Image1f* dist) {
   dist->Init(mask.width(), mask.height(), 0.0f);
 
   // init inifinite inside mask
-  for (int y = 0; y < mask.height(); y++) {
-    for (int x = 0; x < mask.width(); x++) {
+  for (int y = roi_min.y(); y <= roi_max.y(); y++) {
+    for (int x = roi_min.x(); x <= roi_max.x(); x++) {
       if (mask.at(x, y, 0) != 255) {
         continue;
       }
@@ -25,20 +28,22 @@ void DistanceTransformL1(const Image1b& mask, Image1f* dist) {
   }
 
   // forward path
-  for (int y = 1; y < mask.height(); y++) {
-    float up = dist->at(0, y - 1, 0);
+  for (int y = roi_min.y() + 1; y <= roi_max.y(); y++) {
+    float up = dist->at(roi_min.x(), y - 1, 0);
     if (up < std::numeric_limits<float>::max()) {
-      dist->at(0, y, 0) = std::min(up + 1.0f, dist->at(0, y, 0));
+      dist->at(roi_min.x(), y, 0) =
+          std::min(up + 1.0f, dist->at(roi_min.x(), y, 0));
     }
   }
-  for (int x = 1; x < mask.width(); x++) {
-    float left = dist->at(x - 1, 0, 0);
+  for (int x = roi_min.x() + 1; x <= roi_max.x(); x++) {
+    float left = dist->at(x - 1, roi_min.y(), 0);
     if (left < std::numeric_limits<float>::max()) {
-      dist->at(x, 0, 0) = std::min(left + 1.0f, dist->at(x, 0, 0));
+      dist->at(x, roi_min.y(), 0) =
+          std::min(left + 1.0f, dist->at(x, roi_min.y(), 0));
     }
   }
-  for (int y = 1; y < mask.height(); y++) {
-    for (int x = 1; x < mask.width(); x++) {
+  for (int y = roi_min.y() + 1; y <= roi_max.y(); y++) {
+    for (int x = roi_min.x() + 1; x <= roi_max.x(); x++) {
       float up = dist->at(x, y - 1, 0);
       float left = dist->at(x - 1, y, 0);
       float min_dist = std::min(up, left);
@@ -49,22 +54,22 @@ void DistanceTransformL1(const Image1b& mask, Image1f* dist) {
   }
 
   // backward path
-  for (int y = mask.height() - 2; 0 <= y; y--) {
-    float down = dist->at(mask.width() - 1, y + 1, 0);
+  for (int y = roi_max.y() - 1; roi_min.y() <= y; y--) {
+    float down = dist->at(roi_max.x(), y + 1, 0);
     if (down < std::numeric_limits<float>::max()) {
-      dist->at(mask.width() - 1, y, 0) =
-          std::min(down + 1.0f, dist->at(mask.width() - 1, y, 0));
+      dist->at(roi_max.x(), y, 0) =
+          std::min(down + 1.0f, dist->at(roi_max.x(), y, 0));
     }
   }
-  for (int x = mask.width() - 2; 0 <= x; x--) {
-    float right = dist->at(x + 1, mask.height() - 1, 0);
+  for (int x = roi_max.x() - 1; roi_min.x() <= x; x--) {
+    float right = dist->at(x + 1, roi_max.y(), 0);
     if (right < std::numeric_limits<float>::max()) {
-      dist->at(x, mask.height() - 1, 0) =
-          std::min(right + 1.0f, dist->at(x, mask.height() - 1, 0));
+      dist->at(x, roi_max.y(), 0) =
+          std::min(right + 1.0f, dist->at(x, roi_max.y(), 0));
     }
   }
-  for (int y = mask.height() - 2; 0 <= y; y--) {
-    for (int x = mask.width() - 2; 0 <= x; x--) {
+  for (int y = roi_max.y() - 1; roi_min.y() <= y; y--) {
+    for (int x = roi_max.x() - 1; roi_min.x() <= x; x--) {
       float down = dist->at(x, y + 1, 0);
       float right = dist->at(x + 1, y, 0);
       float min_dist = std::min(down, right);
@@ -75,13 +80,15 @@ void DistanceTransformL1(const Image1b& mask, Image1f* dist) {
   }
 }
 
-void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
+void MakeSignedDistanceField(const Image1b& mask,
+                             const Eigen::Vector2i& roi_min,
+                             const Eigen::Vector2i& roi_max, Image1f* dist,
                              bool minmax_normalize, bool use_truncation,
                              float truncation_band) {
   Image1f* negative_dist = dist;
-  DistanceTransformL1(mask, negative_dist);
-  for (int y = 0; y < negative_dist->height(); y++) {
-    for (int x = 0; x < negative_dist->width(); x++) {
+  DistanceTransformL1(mask, roi_min, roi_max, negative_dist);
+  for (int y = roi_min.y(); y <= roi_max.y(); y++) {
+    for (int x = roi_min.x(); x <= roi_max.x(); x++) {
       if (negative_dist->at(x, y, 0) > 0) {
         negative_dist->at(x, y, 0) *= -1;
       }
@@ -89,8 +96,8 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
   }
 
   Image1b inv_mask(mask);
-  for (int y = 0; y < inv_mask.height(); y++) {
-    for (int x = 0; x < inv_mask.width(); x++) {
+  for (int y = roi_min.y(); y <= roi_max.y(); y++) {
+    for (int x = roi_min.x(); x <= roi_max.x(); x++) {
       if (inv_mask.at(x, y, 0) == 255) {
         inv_mask.at(x, y, 0) = 0;
       } else {
@@ -100,9 +107,9 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
   }
 
   Image1f positive_dist;
-  DistanceTransformL1(inv_mask, &positive_dist);
-  for (int y = 0; y < inv_mask.height(); y++) {
-    for (int x = 0; x < inv_mask.width(); x++) {
+  DistanceTransformL1(inv_mask, roi_min, roi_max, &positive_dist);
+  for (int y = roi_min.y(); y <= roi_max.y(); y++) {
+    for (int x = roi_min.x(); x <= roi_max.x(); x++) {
       if (inv_mask.at(x, y, 0) == 255) {
         dist->at(x, y, 0) = positive_dist.at(x, y, 0);
       }
@@ -110,6 +117,7 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
   }
 
   if (minmax_normalize) {
+    // todo: fix to adapt roi
     float max_dist =
         *std::max_element(dist->data().begin(), dist->data().end());
     float min_dist =
@@ -119,8 +127,8 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
     if (abs_max > std::numeric_limits<float>::min()) {
       float norm_factor = 1.0f / abs_max;
 
-      for (int y = 0; y < dist->height(); y++) {
-        for (int x = 0; x < dist->width(); x++) {
+      for (int y = roi_min.y(); y <= roi_max.y(); y++) {
+        for (int x = roi_min.x(); x <= roi_max.x(); x++) {
           dist->at(x, y, 0) *= norm_factor;
         }
       }
@@ -129,8 +137,8 @@ void MakeSignedDistanceField(const Image1b& mask, Image1f* dist,
 
   // truncation process same to KinectFusion
   if (use_truncation) {
-    for (int y = 0; y < dist->height(); y++) {
-      for (int x = 0; x < dist->width(); x++) {
+    for (int y = roi_min.y(); y <= roi_max.y(); y++) {
+      for (int x = roi_min.x(); x <= roi_max.x(); x++) {
         float& d = dist->at(x, y, 0);
         if (-truncation_band >= d) {
           d = std::numeric_limits<float>::lowest();
@@ -214,7 +222,6 @@ bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
 
   float offset = resolution_ * 0.5f;
 
-  const float min_dist = std::numeric_limits<float>::lowest();
 #if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
 #pragma omp parallel for schedule(dynamic, 1)
 #endif
@@ -243,7 +250,7 @@ bool VoxelGrid::Init(const Eigen::Vector3f& bb_max,
         voxel->pos.y() = y_pos;
         voxel->pos.z() = z_pos;
 
-        voxel->sdf = min_dist;
+        voxel->sdf = InvalidSdf::kVal;
       }
     }
   }
@@ -299,7 +306,8 @@ bool VoxelCarver::Init() {
 }
 
 bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
-                        Image1f* sdf) {
+                        const Eigen::Vector2i& roi_min,
+                        const Eigen::Vector2i& roi_max, Image1f* sdf) {
   if (!voxel_grid_->initialized()) {
     LOGE("VoxelCarver::Carve voxel grid has not been initialized\n");
     return false;
@@ -308,7 +316,8 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
   Timer<> timer;
   timer.Start();
   // make signed distance field
-  MakeSignedDistanceField(silhouette, sdf, option_.sdf_minmax_normalize,
+  MakeSignedDistanceField(silhouette, roi_min, roi_max, sdf,
+                          option_.sdf_minmax_normalize,
                           option_.update_option.use_truncation,
                           option_.update_option.truncation_band);
   timer.End();
@@ -342,9 +351,8 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
 
         Eigen::Vector2i image_p(static_cast<int>(std::round(image_p_f.x())),
                                 static_cast<int>(std::round(image_p_f.y())));
-        if (image_p.x() < 0 || image_p.y() < 0 ||
-            camera.width() - 1 < image_p.x() ||
-            camera.height() - 1 < image_p.y()) {
+        if (image_p.x() < roi_min.x() || image_p.y() < roi_min.y() ||
+            roi_max.x() < image_p.x() || roi_max.y() < image_p.y()) {
           continue;
         }
 
@@ -386,6 +394,13 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
 bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette) {
   Image1f sdf(camera.width(), camera.height());
   return Carve(camera, silhouette, &sdf);
+}
+
+bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
+                        Image1f* sdf) {
+  Eigen::Vector2i roi_min{0, 0};
+  Eigen::Vector2i roi_max{silhouette.width() - 1, silhouette.height() - 1};
+  return Carve(camera, silhouette, roi_min, roi_max, sdf);
 }
 
 bool VoxelCarver::Carve(const std::vector<Camera>& cameras,
