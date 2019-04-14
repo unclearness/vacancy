@@ -8,7 +8,7 @@
 
 #include "vacancy/voxel_carver.h"
 
-std::vector<std::string> split(const std::string& input, char delimiter) {
+std::vector<std::string> Split(const std::string& input, char delimiter) {
   std::istringstream stream(input);
   std::string field;
   std::vector<std::string> result;
@@ -26,7 +26,7 @@ bool LoadTumFormat(const std::string& path,
 
   std::string line;
   while (std::getline(ifs, line)) {
-    std::vector<std::string> splited = split(line, ' ');
+    std::vector<std::string> splited = Split(line, ' ');
     if (splited.size() != 8) {
       vacancy::LOGE("wrong tum format\n");
       return false;
@@ -70,6 +70,7 @@ bool LoadTumFormat(const std::string& path,
   return true;
 }
 
+// test by bunny data with 6 views
 int main(int argc, char* argv[]) {
   (void)argc;
   (void)argv;
@@ -80,9 +81,12 @@ int main(int argc, char* argv[]) {
 
   vacancy::VoxelCarver carver;
   vacancy::VoxelCarverOption option;
+
+  // exact mesh bounding box computed in advacne
   option.bb_min = Eigen::Vector3f(-250.000000f, -344.586151f, -129.982697f);
   option.bb_max = Eigen::Vector3f(250.000000f, 150.542343f, 257.329224f);
 
+  // add offset to the bounding box to keep boundary clean
   float bb_offset = 20.0f;
   option.bb_min[0] -= bb_offset;
   option.bb_min[1] -= bb_offset;
@@ -92,18 +96,18 @@ int main(int argc, char* argv[]) {
   option.bb_max[1] += bb_offset;
   option.bb_max[2] += bb_offset;
 
+  // voxel resolution is 10mm
   option.resolution = 10.0f;
-  option.debug_dir = data_dir;
 
   carver.set_option(option);
 
   carver.Init();
 
-  float r = 0.5f;  // scale to smaller size from VGA
-  int width = static_cast<int>(640 * r);
-  int height = static_cast<int>(480 * r);
-  Eigen::Vector2f principal_point(318.6f * r, 255.3f * r);
-  Eigen::Vector2f focal_length(517.3f * r, 516.5f * r);
+  // image size and intrinsic parameters
+  int width = 320;
+  int height = 240;
+  Eigen::Vector2f principal_point(159.3f, 127.65f);
+  Eigen::Vector2f focal_length(258.65f, 258.25f);
   std::shared_ptr<vacancy::Camera> camera =
       std::make_shared<vacancy::PinholeCamera>(width, height,
                                                Eigen::Affine3d::Identity(),
@@ -118,16 +122,23 @@ int main(int argc, char* argv[]) {
     silhouette.Load(data_dir + "/mask_" + num + ".png");
 
     vacancy::Image1f sdf;
-    vacancy::Image3b vis_sdf;
+    // Carve() is the main process to update voxels. Corresponds to the fusion
+    // step in KinectFusion
     carver.Carve(*camera, silhouette, &sdf);
 
+    // save SDF visualization
+    vacancy::Image3b vis_sdf;
     vacancy::SignedDistance2Color(sdf, &vis_sdf, -1.0f, 1.0f);
     vis_sdf.WritePng(data_dir + "/sdf_" + num + ".png");
 
     vacancy::Mesh mesh;
-    carver.ExtractVoxel(&mesh, true, true);
+    // voxel extraction
+    // slow for algorithm itself and saving to disk
+    carver.ExtractVoxel(&mesh);
     mesh.WritePly(data_dir + "/voxel_" + num + ".ply");
 
+    // marching cubes
+    // smoother and faster
     carver.ExtractIsoSurface(&mesh, 0.0);
     mesh.WritePly(data_dir + "/surface_" + num + ".ply");
   }
