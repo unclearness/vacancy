@@ -11,6 +11,7 @@
 
 # Output mesh
 Two mesh extraction methods are supported: voxel and marching cubes. Marching cubes are much better in practice while voxel representation is suitable to understand how the algorithm works.
+
 |voxel|marching cubes|
 |---|---|
 |<img src="https://raw.githubusercontent.com/wiki/unclearness/vacancy/images/bunny_voxel.png" width="320">|<img src="https://raw.githubusercontent.com/wiki/unclearness/vacancy/images/bunny_marching_cubes.png" width="320">|
