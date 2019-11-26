@@ -40,7 +40,6 @@ endif()
 option(VACANCY_USE_STB "Use stb to enable image i/o" ON)
 message("VACANCY_USE_STB: ${VACANCY_USE_STB}")
 if(VACANCY_USE_STB)
-  add_definitions(-DVACANCY_USE_STB)
   option(VACANCY_USE_STB_AS_STATIC_LIB "Use stb as static lib" OFF)
   message("VACANCY_USE_STB_AS_STATIC_LIB: ${VACANCY_USE_STB_AS_STATIC_LIB}")
   if(VACANCY_USE_STB_AS_STATIC_LIB)
@@ -94,6 +93,9 @@ add_library(${PUBLIC_LIB_NAME}
   # implementations of header-only library
   ${VACANCY_STB_IMPLEMENTATION_CC}
 )
+if (VACANCY_USE_STB)
+  target_compile_definitions(${PUBLIC_LIB_NAME} PUBLIC -DVACANCY_USE_STB)
+endif()
 
 # set folders
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -125,11 +127,11 @@ SOURCE_GROUP("Source files" FILES
   src/vacancy/extract_voxel.cc
 )
 
-include_directories(${PUBLIC_LIB_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${PUBLIC_LIB_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src)
-include_directories(${PUBLIC_LIB_NAME} third_party)
-include_directories(${PUBLIC_LIB_NAME} ${EIGEN_INSTALL_DIR})
-include_directories(${PUBLIC_LIB_NAME} ${STB_INSTALL_DIR})
+target_include_directories(${PUBLIC_LIB_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(${PUBLIC_LIB_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(${PUBLIC_LIB_NAME} PUBLIC third_party)
+target_include_directories(${PUBLIC_LIB_NAME} PUBLIC ${EIGEN_INSTALL_DIR})
+target_include_directories(${PUBLIC_LIB_NAME} PUBLIC ${STB_INSTALL_DIR})
 
 set_target_properties(${PUBLIC_LIB_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 
