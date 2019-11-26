@@ -58,15 +58,6 @@ if(VACANCY_USE_OPENMP)
   add_definitions(-DVACANCY_USE_OPENMP)
 endif()
 
-# For OpenMP
-if(VACANCY_USE_OPENMP)
-  find_package(OpenMP REQUIRED)
-  if(OpenMP_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-  endif()
-endif()
-
 set(PUBLIC_LIB_NAME ${PROJECT_NAME})
 add_library(${PUBLIC_LIB_NAME}
   STATIC
@@ -95,6 +86,16 @@ add_library(${PUBLIC_LIB_NAME}
 )
 if (VACANCY_USE_STB)
   target_compile_definitions(${PUBLIC_LIB_NAME} PUBLIC -DVACANCY_USE_STB)
+endif()
+
+# For OpenMP
+if(VACANCY_USE_OPENMP)
+  find_package(OpenMP REQUIRED)
+  if(OpenMP_FOUND)
+      target_compile_options(${PUBLIC_LIB_NAME} PUBLIC
+        $<$<COMPILE_LANGUAGE:CXX>:${OPENMP_CXX_FLAGS}>
+        $<$<COMPILE_LANGUAGE:C>:${OPENMP_C_FLAGS}>)
+  endif()
 endif()
 
 # set folders
