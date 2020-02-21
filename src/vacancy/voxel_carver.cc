@@ -426,6 +426,8 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
   }
 
   timer.Start();
+  const float max_sdf =
+      *std::max_element(sdf->data().begin(), sdf->data().end());
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
   const Eigen::Affine3f& w2c = camera.w2c().cast<float>();
 #if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
@@ -451,12 +453,20 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
 
         camera.Project(voxel_pos_c, &image_p_f);
 
+        float dist = InvalidSdf::kVal;
+
         if (image_p_f.x() < roi_min.x() || image_p_f.y() < roi_min.y() ||
             roi_max.x() < image_p_f.x() || roi_max.y() < image_p_f.y()) {
-          continue;
+          if (option_.update_option.update_outside ==
+              UpdateOutsideImage::kNone) {
+            continue;
+          } else if (option_.update_option.update_outside ==
+                     UpdateOutsideImage::kMax) {
+            dist = max_sdf;
+          }
+        } else {
+          dist = interpolate_sdf(image_p_f, *sdf, roi_min, roi_max);
         }
-
-        float dist = interpolate_sdf(image_p_f, *sdf, roi_min, roi_max);
 
         // skip if dist is truncated
         if (option_.update_option.use_truncation && dist < -1.0f) {

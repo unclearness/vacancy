@@ -29,6 +29,13 @@ enum class SdfInterpolation {
   kBilinear = 1  // Bilinear interpolation
 };
 
+// The way to update voxels which are projected to outside of the current image
+enum class UpdateOutsideImage {
+  kNone = 0,  // Do nothing
+  kMax = 1    // Fill by max sdf of the current image. This is valid only when
+              // silhouette is not protruding over the current image edge
+};
+
 struct InvalidSdf {
   static const float kVal;
 };
@@ -36,6 +43,7 @@ struct InvalidSdf {
 struct VoxelUpdateOption {
   VoxelUpdate voxel_update{VoxelUpdate::kMax};
   SdfInterpolation sdf_interp{SdfInterpolation::kBilinear};
+  UpdateOutsideImage update_outside{UpdateOutsideImage::kNone};
   int voxel_max_update_num{
       255};  // After updating voxel_max_update_num, no sdf update
   float voxel_update_weight{1.0f};  // only valid if kWeightedAverage is set
