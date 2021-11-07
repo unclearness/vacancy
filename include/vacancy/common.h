@@ -10,7 +10,19 @@
 #include <limits>
 #include <string>
 
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable : 4127)
+#pragma warning(disable : 4819)
+#pragma warning(disable : 26451)
+#pragma warning(disable : 26495)
+#pragma warning(disable : 26812)
+#endif
 #include "Eigen/Geometry"
+#ifdef _WIN32
+#pragma warning(pop)
+#endif
+
 #include "vacancy/log.h"
 
 namespace vacancy {

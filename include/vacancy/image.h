@@ -91,7 +91,8 @@ class Image {
     width_ = width;
     height_ = height;
 
-    data_.resize(height_ * width_ * channel_);
+    data_.resize(static_cast<size_t>(height_) * static_cast<size_t>(width_) *
+                 static_cast<size_t>(channel_));
     std::memcpy(&data_[0], in_pixels_tmp,
                 sizeof(T) * channel_ * width_ * height_);
 
