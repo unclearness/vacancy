@@ -408,6 +408,13 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
                           option_.update_option.truncation_band);
   timer.End();
   LOGI("VoxelCarver::Carve make SDF %02f\n", timer.elapsed_msec());
+
+  return Carve(camera, roi_min, roi_max, *sdf);
+}
+
+bool VoxelCarver::Carve(const Camera& camera, const Eigen::Vector2i& roi_min,
+                        const Eigen::Vector2i& roi_max, const Image1f& sdf) {
+  Timer<> timer;
   std::function<float(const Eigen::Vector2f&, const vacancy::Image1f&,
                       const Eigen::Vector2i&, const Eigen::Vector2i&)>
       interpolate_sdf;
@@ -426,8 +433,7 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
   }
 
   timer.Start();
-  const float max_sdf =
-      *std::max_element(sdf->data().begin(), sdf->data().end());
+  const float max_sdf = *std::max_element(sdf.data().begin(), sdf.data().end());
   const Eigen::Vector3i& voxel_num = voxel_grid_->voxel_num();
   const Eigen::Affine3f& w2c = camera.w2c().cast<float>();
 #if defined(_OPENMP) && defined(VACANCY_USE_OPENMP)
@@ -465,7 +471,7 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
             dist = max_sdf;
           }
         } else {
-          dist = interpolate_sdf(image_p_f, *sdf, roi_min, roi_max);
+          dist = interpolate_sdf(image_p_f, sdf, roi_min, roi_max);
         }
 
         // skip if dist is truncated
@@ -499,6 +505,12 @@ bool VoxelCarver::Carve(const Camera& camera, const Image1b& silhouette,
   Eigen::Vector2i roi_min{0, 0};
   Eigen::Vector2i roi_max{silhouette.width() - 1, silhouette.height() - 1};
   return Carve(camera, silhouette, roi_min, roi_max, sdf);
+}
+
+bool VoxelCarver::Carve(const Camera& camera, const Image1f& sdf) {
+  Eigen::Vector2i roi_min{0, 0};
+  Eigen::Vector2i roi_max{sdf.width() - 1, sdf.height() - 1};
+  return Carve(camera, roi_min, roi_max, sdf);
 }
 
 bool VoxelCarver::Carve(const std::vector<Camera>& cameras,

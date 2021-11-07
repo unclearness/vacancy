@@ -105,8 +105,11 @@ class VoxelCarver {
   bool Carve(const Camera& camera, const Image1b& silhouette,
              const Eigen::Vector2i& roi_min, const Eigen::Vector2i& roi_max,
              Image1f* sdf);
+  bool Carve(const Camera& camera, const Eigen::Vector2i& roi_min,
+             const Eigen::Vector2i& roi_max, const Image1f& sdf);
   bool Carve(const Camera& camera, const Image1b& silhouette, Image1f* sdf);
   bool Carve(const Camera& camera, const Image1b& silhouette);
+  bool Carve(const Camera& camera, const Image1f& sdf);
   bool Carve(const std::vector<Camera>& cameras,
              const std::vector<Image1b>& silhouettes);
   void ExtractVoxel(Mesh* mesh, bool inside_empty = false);
