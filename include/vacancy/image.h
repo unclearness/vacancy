@@ -116,6 +116,17 @@ class Image {
                    width_ * channel_ * sizeof(T));
     return true;
   }
+#else
+  bool Load(const std::string& path) {
+    (void)path;
+    LOGE("This method is not supported by the current configuration\n");
+    return false;
+  }
+  bool WritePng(const std::string& path) const {
+    (void)path;
+    LOGE("This method is not supported by the current configuration\n");
+    return false;
+  }
 #endif
 
   template <typename TT, int NN>
