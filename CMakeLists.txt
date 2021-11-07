@@ -19,11 +19,18 @@ if (WIN32)
 # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level?view=vs-2017
 # "However, for a new project, it may be best to use /W4 in all compilations;
 # this will ensure the fewest possible hard-to-find code defects."
-set(CMAKE_CXX_FLAGS "-std=c++14 -W4 -EHsc")
+set(CMAKE_CXX_FLAGS "/std:c++14 /W4 /EHsc /MP")
+
 
 else()
 # g++ option for *nix
-set(CMAKE_CXX_FLAGS  "-std=c++14 -Wall -O2")
+
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF) #Set this to ON if you want to use GNU++
+set(CMAKE_CXX_STANDARD 11)
+
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -O2")
+
 
 endif()
 
@@ -40,6 +47,7 @@ endif()
 option(VACANCY_USE_STB "Use stb to enable image i/o" ON)
 message("VACANCY_USE_STB: ${VACANCY_USE_STB}")
 if(VACANCY_USE_STB)
+  add_definitions(-DVACANCY_USE_STB)
   option(VACANCY_USE_STB_AS_STATIC_LIB "Use stb as static lib" OFF)
   message("VACANCY_USE_STB_AS_STATIC_LIB: ${VACANCY_USE_STB_AS_STATIC_LIB}")
   if(VACANCY_USE_STB_AS_STATIC_LIB)
@@ -47,6 +55,7 @@ if(VACANCY_USE_STB)
       STATIC
       src/vacancy/stb.cc)
     set(STB_LIB_NAME stb)
+    target_include_directories(${STB_LIB_NAME} PUBLIC third_party)
   else()
     set(VACANCY_STB_IMPLEMENTATION_CC src/vacancy/stb.cc)
   endif()
@@ -84,9 +93,6 @@ add_library(${PUBLIC_LIB_NAME}
   # implementations of header-only library
   ${VACANCY_STB_IMPLEMENTATION_CC}
 )
-if (VACANCY_USE_STB)
-  target_compile_definitions(${PUBLIC_LIB_NAME} PUBLIC -DVACANCY_USE_STB)
-endif()
 
 # For OpenMP
 if(VACANCY_USE_OPENMP)
