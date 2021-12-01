@@ -4,6 +4,7 @@
  */
 
 #include <stdio.h>
+
 #include <fstream>
 
 #include "vacancy/voxel_carver.h"
@@ -141,6 +142,10 @@ int main(int argc, char* argv[]) {
     // smoother and faster
     carver.ExtractIsoSurface(&mesh, 0.0);
     mesh.WritePly(data_dir + "/surface_" + num + ".ply");
+
+    // No linear interpolation for marhching cubes, angular surface
+    carver.ExtractIsoSurface(&mesh, 0.0, false);
+    mesh.WritePly(data_dir + "/surface_nointerp_" + num + ".ply");
   }
 
   return 0;

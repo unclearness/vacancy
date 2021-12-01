@@ -113,7 +113,8 @@ class VoxelCarver {
   bool Carve(const std::vector<Camera>& cameras,
              const std::vector<Image1b>& silhouettes);
   void ExtractVoxel(Mesh* mesh, bool inside_empty = false);
-  void ExtractIsoSurface(Mesh* mesh, double iso_level = 0.0);
+  void ExtractIsoSurface(Mesh* mesh, double iso_level = 0.0,
+                         bool linear_interp = true);
 };
 
 void DistanceTransformL1(const Image1b& mask, const Eigen::Vector2i& roi_min,

@@ -38,21 +38,30 @@ void VertexInterp(double isolevel, const Eigen::Vector3f &p1,
     return;
   }
   double mu = (isolevel - valp1) / (valp2 - valp1);
-  p->x() = static_cast<float>(p1.x() + mu * (p2.x() - p1.x()));
-  p->y() = static_cast<float>(p1.y() + mu * (p2.y() - p1.y()));
-  p->z() = static_cast<float>(p1.z() + mu * (p2.z() - p1.z()));
+  p->x() = static_cast<float>(p1.x() + mu * (static_cast<double>(p2.x()) -
+                                             static_cast<double>(p1.x())));
+  p->y() = static_cast<float>(p1.y() + mu * (static_cast<double>(p2.y()) -
+                                             static_cast<double>(p1.y())));
+  p->z() = static_cast<float>(p1.z() + mu * (static_cast<double>(p2.z()) -
+                                             static_cast<double>(p1.z())));
 }
 
 void VertexInterp(double iso_level, const vacancy::Voxel &v1,
-                  const vacancy::Voxel &v2, Eigen::Vector3f *p) {
-  VertexInterp(iso_level, v1.pos, v2.pos, v1.sdf, v2.sdf, p);
+                  const vacancy::Voxel &v2, Eigen::Vector3f *p,
+                  bool linear_interp) {
+  if (linear_interp) {
+    VertexInterp(iso_level, v1.pos, v2.pos, v1.sdf, v2.sdf, p);
+  } else {
+    *p = v1.pos;
+  }
 }
 
 }  // namespace
 
 namespace vacancy {
 
-void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
+void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level,
+                   bool linear_interp) {
   Timer<> timer;
   timer.Start();
 
@@ -127,51 +136,63 @@ void MarchingCubes(const VoxelGrid &voxel_grid, Mesh *mesh, double iso_level) {
          * And save a pair of voxel ids when the vertices occur
          */
         if (edge_table[cube_index] & 1) {
-          VertexInterp(iso_level, *voxels[0], *voxels[1], &vert_list[0]);
+          VertexInterp(iso_level, *voxels[0], *voxels[1], &vert_list[0],
+                       linear_interp);
           voxelids_list[0] = std::make_pair(voxels[0]->id, voxels[1]->id);
         }
         if (edge_table[cube_index] & 2) {
-          VertexInterp(iso_level, *voxels[1], *voxels[2], &vert_list[1]);
+          VertexInterp(iso_level, *voxels[1], *voxels[2], &vert_list[1],
+                       linear_interp);
           voxelids_list[1] = std::make_pair(voxels[1]->id, voxels[2]->id);
         }
         if (edge_table[cube_index] & 4) {
-          VertexInterp(iso_level, *voxels[2], *voxels[3], &vert_list[2]);
+          VertexInterp(iso_level, *voxels[2], *voxels[3], &vert_list[2],
+                       linear_interp);
           voxelids_list[2] = std::make_pair(voxels[3]->id, voxels[2]->id);
         }
         if (edge_table[cube_index] & 8) {
-          VertexInterp(iso_level, *voxels[3], *voxels[0], &vert_list[3]);
+          VertexInterp(iso_level, *voxels[3], *voxels[0], &vert_list[3],
+                       linear_interp);
           voxelids_list[3] = std::make_pair(voxels[0]->id, voxels[3]->id);
         }
         if (edge_table[cube_index] & 16) {
-          VertexInterp(iso_level, *voxels[4], *voxels[5], &vert_list[4]);
+          VertexInterp(iso_level, *voxels[4], *voxels[5], &vert_list[4],
+                       linear_interp);
           voxelids_list[4] = std::make_pair(voxels[4]->id, voxels[5]->id);
         }
         if (edge_table[cube_index] & 32) {
-          VertexInterp(iso_level, *voxels[5], *voxels[6], &vert_list[5]);
+          VertexInterp(iso_level, *voxels[5], *voxels[6], &vert_list[5],
+                       linear_interp);
           voxelids_list[5] = std::make_pair(voxels[5]->id, voxels[6]->id);
         }
         if (edge_table[cube_index] & 64) {
-          VertexInterp(iso_level, *voxels[6], *voxels[7], &vert_list[6]);
+          VertexInterp(iso_level, *voxels[6], *voxels[7], &vert_list[6],
+                       linear_interp);
           voxelids_list[6] = std::make_pair(voxels[7]->id, voxels[6]->id);
         }
         if (edge_table[cube_index] & 128) {
-          VertexInterp(iso_level, *voxels[7], *voxels[4], &vert_list[7]);
+          VertexInterp(iso_level, *voxels[7], *voxels[4], &vert_list[7],
+                       linear_interp);
           voxelids_list[7] = std::make_pair(voxels[4]->id, voxels[7]->id);
         }
         if (edge_table[cube_index] & 256) {
-          VertexInterp(iso_level, *voxels[0], *voxels[4], &vert_list[8]);
+          VertexInterp(iso_level, *voxels[0], *voxels[4], &vert_list[8],
+                       linear_interp);
           voxelids_list[8] = std::make_pair(voxels[0]->id, voxels[4]->id);
         }
         if (edge_table[cube_index] & 512) {
-          VertexInterp(iso_level, *voxels[1], *voxels[5], &vert_list[9]);
+          VertexInterp(iso_level, *voxels[1], *voxels[5], &vert_list[9],
+                       linear_interp);
           voxelids_list[9] = std::make_pair(voxels[1]->id, voxels[5]->id);
         }
         if (edge_table[cube_index] & 1024) {
-          VertexInterp(iso_level, *voxels[2], *voxels[6], &vert_list[10]);
+          VertexInterp(iso_level, *voxels[2], *voxels[6], &vert_list[10],
+                       linear_interp);
           voxelids_list[10] = std::make_pair(voxels[2]->id, voxels[6]->id);
         }
         if (edge_table[cube_index] & 2048) {
-          VertexInterp(iso_level, *voxels[3], *voxels[7], &vert_list[11]);
+          VertexInterp(iso_level, *voxels[3], *voxels[7], &vert_list[11],
+                       linear_interp);
           voxelids_list[11] = std::make_pair(voxels[3]->id, voxels[7]->id);
         }
 

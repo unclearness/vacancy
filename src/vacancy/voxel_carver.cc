@@ -537,8 +537,9 @@ void VoxelCarver::ExtractVoxel(Mesh* mesh, bool inside_empty) {
   LOGI("VoxelCarver::ExtractVoxel %02f\n", timer.elapsed_msec());
 }
 
-void VoxelCarver::ExtractIsoSurface(Mesh* mesh, double iso_level) {
-  MarchingCubes(*voxel_grid_, mesh, iso_level);
+void VoxelCarver::ExtractIsoSurface(Mesh* mesh, double iso_level,
+                                    bool linear_interp) {
+  MarchingCubes(*voxel_grid_, mesh, iso_level, linear_interp);
 }
 
 }  // namespace vacancy
